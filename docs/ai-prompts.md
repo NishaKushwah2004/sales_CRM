@@ -98,3 +98,17 @@ The existing backend deal routes already covered basic CRUD and authorization, w
 ### What you corrected
 
 The interrupted Codex implementation had stopped after creating the backend route while the React deal pages remained placeholders. The remaining Phase 4 work was completed manually from the current source state without adding later-phase functionality.
+
+## Phase 5 - Deal Lifecycle
+
+### Prompt
+
+Implement only Phase 5 Deal Lifecycle in the existing Phase 4 Sales CRM. Inspect the current repository first; preserve existing CRUD, access control, schema, and styling. Add explicit server-side forward/backward transition validation, mandatory backward reasons, terminal close fields, manager-only reopen, centralized stage probabilities, transactional DealEvent recording, lifecycle API endpoints, detail-page controls, focused validation, and Phase 5 documentation. Do not implement Phase 6 or later features.
+
+### What you got
+
+The existing schema already contained `DealStage`, `closedAt`, `stageBeforeClose`, and `DealEvent`, so the implementation added no migration. The backend gained centralized transition configuration and authenticated transactional stage/reopen routes. The existing detail page gained visible stage state and valid lifecycle actions.
+
+### What you corrected
+
+The first UI patch placed new React hooks inside the existing loading effect because the original page used a compressed one-line JSX return. Frontend lint exposed the mistake; the page was then rewritten in formatted JSX while retaining its existing edit, owner, company, and delete behavior. The final lint pass succeeded.

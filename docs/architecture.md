@@ -39,4 +39,10 @@ A representative create-deal request is: the authenticated browser submits title
 
 Deal access is enforced in the server query: managers can access every non-deleted deal, while Sales Reps can access deals they own or where they are an existing collaborator. The React UI does not implement authorization by itself.
 
-Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that later support immutable history. Lifecycle transitions, collaborator management, server-side search/filter/sort/pagination, bulk actions, reporting dashboard, timeline UI/event writing, and past-due alert UI remain later phases.
+Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that later support immutable history. Collaborator management, server-side search/filter/sort/pagination, bulk actions, reporting dashboard, timeline UI, and past-due alert UI remain later phases.
+
+## Phase 5 - Deal lifecycle
+
+The lifecycle API adds `PATCH /api/deals/:id/stage` and `POST /api/deals/:id/reopen` to the existing authenticated Deals router. The route reuses the existing `findAccessibleDeal` query, so managers retain global access and sales reps retain ownership/collaborator access. Server-side validation uses explicit forward and backward transition maps in `backend/src/config/dealLifecycle.js`; it does not infer business rules from enum ordering. Fixed stage probabilities are centralized in the same configuration for later weighted reporting.
+
+Each accepted stage change updates the Deal and appends a `STAGE_CHANGED` DealEvent in one Prisma transaction. Closing stores `closedAt` and the immediately previous stage in `stageBeforeClose`; only managers can reopen Won or Lost deals, and reopening restores that saved stage while clearing both close fields. The React deal detail page presents the current lifecycle and only the valid next/backward/reopen actions, while the API remains authoritative.

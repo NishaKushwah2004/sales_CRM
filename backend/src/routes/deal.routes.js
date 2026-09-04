@@ -2,6 +2,7 @@ const express = require('express')
 const { UserRole, DealStage, Prisma } = require('../../../node_modules/@prisma/client')
 const prisma = require('../lib/prisma')
 const { requireAuth } = require('../middleware/auth')
+const { forwardTransitions, backwardTransitions } = require('../config/dealLifecycle')
 
 const router = express.Router()
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -139,6 +140,98 @@ router.get('/:id', async (req, res, next) => {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
     }
     return res.json({ success: true, data: { deal } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.patch('/:id/stage', async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+
+    const requestedStage = req.body?.stage
+    if (!Object.values(DealStage).includes(requestedStage)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_STAGE', message: 'A valid deal stage is required.' } })
+    }
+    if (deal.stage === DealStage.WON || deal.stage === DealStage.LOST) {
+      return res.status(409).json({ success: false, error: { code: 'DEAL_CLOSED', message: 'This deal is closed. A manager must reopen it before changing its stage.' } })
+    }
+
+    const nextForwardStages = forwardTransitions[deal.stage] || []
+    const isForward = nextForwardStages.includes(requestedStage)
+    const isBackward = backwardTransitions[deal.stage] === requestedStage
+    if (!isForward && !isBackward) {
+      return res.status(409).json({ success: false, error: { code: 'INVALID_TRANSITION', message: 'Cannot skip stages. Deals must move one stage at a time.' } })
+    }
+
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : ''
+    if (isBackward && !reason) {
+      return res.status(400).json({ success: false, error: { code: 'BACKWARD_REASON_REQUIRED', message: 'A reason is required when moving a deal backward.' } })
+    }
+
+    const updated = await prisma.$transaction(async (transaction) => {
+      await transaction.deal.update({
+        where: { id: deal.id },
+        data: {
+          stage: requestedStage,
+          ...(requestedStage === DealStage.WON || requestedStage === DealStage.LOST
+            ? { closedAt: new Date(), stageBeforeClose: deal.stage }
+            : {}),
+        },
+      })
+      await transaction.dealEvent.create({
+        data: {
+          dealId: deal.id,
+          actorId: req.user.id,
+          type: 'STAGE_CHANGED',
+          oldStage: deal.stage,
+          newStage: requestedStage,
+          backwardReason: isBackward ? reason : undefined,
+        },
+      })
+      return transaction.deal.findUnique({ where: { id: deal.id }, include })
+    })
+
+    return res.json({ success: true, data: { deal: updated } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:id/reopen', async (req, res, next) => {
+  try {
+    if (req.user.role !== UserRole.MANAGER) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only a manager can reopen a closed deal.' } })
+    }
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+    if ((deal.stage !== DealStage.WON && deal.stage !== DealStage.LOST) || !deal.stageBeforeClose) {
+      return res.status(409).json({ success: false, error: { code: 'DEAL_NOT_CLOSED', message: 'Only a closed Won or Lost deal can be reopened.' } })
+    }
+
+    const updated = await prisma.$transaction(async (transaction) => {
+      await transaction.deal.update({
+        where: { id: deal.id },
+        data: { stage: deal.stageBeforeClose, closedAt: null, stageBeforeClose: null },
+      })
+      await transaction.dealEvent.create({
+        data: {
+          dealId: deal.id,
+          actorId: req.user.id,
+          type: 'STAGE_CHANGED',
+          oldStage: deal.stage,
+          newStage: deal.stageBeforeClose,
+        },
+      })
+      return transaction.deal.findUnique({ where: { id: deal.id }, include })
+    })
+
+    return res.json({ success: true, data: { deal: updated } })
   } catch (error) {
     return next(error)
   }

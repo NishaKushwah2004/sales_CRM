@@ -51,3 +51,13 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 **Actual:** extended across the interrupted Codex session and manual completion after the Codex usage limit was reached.
 
 **Cut from this phase:** lifecycle transitions, collaborator management, search/filter/sort/pagination, bulk actions, CSV export, dashboard, immutable timeline behavior, and past-due alerts. Those remain deliberately separated into later phases.
+
+## Phase 5 - Deal Lifecycle
+
+**Intended work:** enforce the fixed forward lifecycle, one-stage backward movement with a reason, terminal Won/Lost states, manager-only reopening, centralized probabilities, append-only stage events, transactional updates, and focused detail-page controls.
+
+**Actual work:** added explicit transition and probability configuration, transactional stage/reopen endpoints using existing access checks, close/reopen field handling, immutable `STAGE_CHANGED` events, and lifecycle controls without changing the Prisma schema or Phase 4 CRUD.
+
+**Validation/testing:** backend syntax checks, Prisma schema validation, frontend lint, and frontend production build were run. API behavior should be exercised against the seeded PostgreSQL instance for the complete forward/backward/closed/reopen matrix.
+
+**Deviation/cut:** no collaborator changes, search, bulk actions, dashboard, timeline UI, alerts, or deployment work was added. The existing DealEvent model was used rather than introducing a second history model.

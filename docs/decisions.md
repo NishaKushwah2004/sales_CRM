@@ -150,3 +150,27 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Allow only managers to change `ownerId` through the deal update API.
 - **Rejected:** Letting Sales Reps submit arbitrary owner IDs.
 - **Why:** The README gives managers the responsibility to reassign deals and server-side authorization must prevent a rep from impersonating another owner.
+
+## Phase 5 Decision 1
+
+- **Chose:** An explicit forward-transition map and separate one-step backward map.
+- **Rejected:** Using the numeric or declaration order of the Prisma enum.
+- **Why:** Lifecycle rules are business policy, and explicit maps make skipped transitions and terminal stages unambiguous and reviewable.
+
+## Phase 5 Decision 2
+
+- **Chose:** Centralize fixed probabilities and transition configuration in `backend/src/config/dealLifecycle.js`.
+- **Rejected:** Scattering percentages through reporting or route code, or storing per-deal probabilities.
+- **Why:** Every consumer must use the same fixed values, while the schema should continue to represent the deal's stage rather than a derived reporting value.
+
+## Phase 5 Decision 3
+
+- **Chose:** Store `stageBeforeClose` at the moment a deal reaches Won or Lost and use it for reopening.
+- **Rejected:** Reopening directly to New or guessing the prior stage from event history.
+- **Why:** The schema already provides an explicit restoration field, and reopening must return to the immediately previous stage.
+
+## Phase 5 Decision 4
+
+- **Chose:** Update the deal and append its `STAGE_CHANGED` event in one Prisma transaction.
+- **Rejected:** Performing the two writes independently.
+- **Why:** A lifecycle state without its immutable event, or an event without the state change, would make the audit record unreliable.
