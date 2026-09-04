@@ -71,6 +71,15 @@ async function findSalesRep(id) {
   return prisma.user.findFirst({ where: { id, role: UserRole.SALES_REP }, select: { id: true, email: true, role: true } })
 }
 
+async function findUser(id) {
+  if (!validId(id)) return null
+  return prisma.user.findUnique({ where: { id }, select: { id: true, email: true, role: true } })
+}
+
+function canManageCollaborators(deal, user) {
+  return user.role === UserRole.MANAGER || deal.ownerId === user.id
+}
+
 router.use(requireAuth)
 
 router.get('/owners', async (req, res, next) => {
@@ -128,6 +137,97 @@ router.post('/', async (req, res, next) => {
       include,
     })
     return res.status(201).json({ success: true, data: { deal } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/:id/collaborator-candidates', async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+    if (!canManageCollaborators(deal, req.user)) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have permission to view collaborator candidates.' } })
+    }
+    const candidates = await prisma.user.findMany({
+      where: { role: UserRole.SALES_REP },
+      select: { id: true, email: true, role: true },
+      orderBy: { email: 'asc' },
+    })
+    return res.json({ success: true, data: { candidates } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/:id/collaborators', async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+    const collaborators = await prisma.dealCollaborator.findMany({
+      where: { dealId: deal.id },
+      include: { user: { select: { id: true, email: true, role: true } } },
+      orderBy: { createdAt: 'asc' },
+    })
+    return res.json({ success: true, data: { collaborators: collaborators.map(({ user }) => user) } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:id/collaborators', async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+    if (!canManageCollaborators(deal, req.user)) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have permission to manage collaborators.' } })
+    }
+    const target = await findUser(req.body?.userId)
+    if (!target || target.role !== UserRole.SALES_REP) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_COLLABORATOR', message: 'Only sales reps can be collaborators.' } })
+    }
+    if (target.id === deal.ownerId) {
+      return res.status(409).json({ success: false, error: { code: 'OWNER_COLLABORATOR', message: 'The deal owner does not need to be added as a collaborator.' } })
+    }
+
+    try {
+      await prisma.dealCollaborator.create({ data: { dealId: deal.id, userId: target.id } })
+    } catch (error) {
+      if (error.code === 'P2002') {
+        return res.status(409).json({ success: false, error: { code: 'DUPLICATE_COLLABORATOR', message: 'This sales rep is already a collaborator on this deal.' } })
+      }
+      throw error
+    }
+    return res.status(201).json({ success: true, data: { collaborator: target } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.delete('/:id/collaborators/:userId', async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+    if (!canManageCollaborators(deal, req.user)) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have permission to manage collaborators.' } })
+    }
+    if (!validId(req.params.userId)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_COLLABORATOR', message: 'Collaborator id is invalid.' } })
+    }
+    const existing = await prisma.dealCollaborator.findUnique({ where: { dealId_userId: { dealId: deal.id, userId: req.params.userId } } })
+    if (!existing) {
+      return res.status(404).json({ success: false, error: { code: 'COLLABORATOR_NOT_FOUND', message: 'This sales rep is not a collaborator on this deal.' } })
+    }
+    await prisma.dealCollaborator.delete({ where: { dealId_userId: { dealId: deal.id, userId: req.params.userId } } })
+    return res.json({ success: true, data: { message: 'Collaborator removed.' } })
   } catch (error) {
     return next(error)
   }

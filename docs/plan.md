@@ -61,3 +61,13 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 **Validation/testing:** backend syntax checks, Prisma schema validation, frontend lint, and frontend production build were run. API behavior should be exercised against the seeded PostgreSQL instance for the complete forward/backward/closed/reopen matrix.
 
 **Deviation/cut:** no collaborator changes, search, bulk actions, dashboard, timeline UI, alerts, or deployment work was added. The existing DealEvent model was used rather than introducing a second history model.
+
+## Phase 6 - Collaborators
+
+**Planned work:** implement server-authoritative collaborator membership using the existing relationship, manager/owner add and remove permissions, Sales Rep-only targets, immediate access changes, collaborator update access, and detail-page list/add/remove controls.
+
+**Actual implementation:** added collaborator list, candidate, add, and remove endpoints. The routes reuse existing authentication and deal access, preserve manager-only owner reassignment, handle duplicate and owner-target requests cleanly, and return only safe user fields. The existing detail page now displays collaborators and provides permission-aware controls.
+
+**Testing:** frontend lint/build, backend syntax checks, Prisma validation/generation, and request-level API authorization tests were run. The request harness covered manager, owner, collaborator, unrelated rep, duplicate, manager-target, owner-target, removal, access, update, and owner-reassignment cases.
+
+**Deviation/cut:** no schema or migration change was needed because `DealCollaborator` already has the required composite primary key and relationships. Search, filtering, bulk actions, reporting, timeline UI, and alerts remain deferred to later phases.

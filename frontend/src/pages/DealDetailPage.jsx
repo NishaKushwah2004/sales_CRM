@@ -20,6 +20,9 @@ export default function DealDetailPage() {
   const [deal, setDeal] = useState(null)
   const [companies, setCompanies] = useState([])
   const [owners, setOwners] = useState([])
+  const [collaborators, setCollaborators] = useState([])
+  const [candidateUsers, setCandidateUsers] = useState([])
+  const [selectedCollaborator, setSelectedCollaborator] = useState('')
   const [form, setForm] = useState(empty)
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(true)
@@ -36,10 +39,18 @@ export default function DealDetailPage() {
           user.role === 'MANAGER' ? api.get('/deals/owners') : Promise.resolve(null),
         ])
         const current = dealResponse.data.data.deal
+        const [collaboratorResponse, candidateResponse] = await Promise.all([
+          api.get(`/deals/${id}/collaborators`),
+          current.ownerId === user.id || user.role === 'MANAGER'
+            ? api.get(`/deals/${id}/collaborator-candidates`)
+            : Promise.resolve({ data: { data: { candidates: [] } } }),
+        ])
         setDeal(current)
         setForm({ title: current.title, value: String(current.value), expectedCloseDate: current.expectedCloseDate.slice(0, 10), companyId: current.companyId, ownerId: current.ownerId })
         setCompanies(companyResponse.data.data.companies)
         setOwners(ownerResponse?.data.data.owners || [])
+        setCollaborators(collaboratorResponse.data.data.collaborators)
+        setCandidateUsers(current.ownerId === user.id || user.role === 'MANAGER' ? candidateResponse.data.data.candidates : [])
       } catch (requestError) {
         setError(errorMessage(requestError, 'Unable to load deal.'))
       } finally {
@@ -47,7 +58,7 @@ export default function DealDetailPage() {
       }
     }
     load()
-  }, [id, user.role])
+  }, [id, user.id, user.role])
 
   function change(field, value) { setForm((current) => ({ ...current, [field]: value })) }
 
@@ -97,6 +108,29 @@ export default function DealDetailPage() {
     } finally { setLifecycleSaving(false) }
   }
 
+  async function addCollaborator(event) {
+    event.preventDefault()
+    if (!selectedCollaborator) return
+    setSaving(true); setError('')
+    try {
+      const response = await api.post(`/deals/${id}/collaborators`, { userId: selectedCollaborator })
+      setCollaborators((current) => [...current, response.data.data.collaborator])
+      setSelectedCollaborator('')
+    } catch (requestError) {
+      setError(errorMessage(requestError, 'Unable to add collaborator.'))
+    } finally { setSaving(false) }
+  }
+
+  async function removeCollaborator(userId) {
+    setSaving(true); setError('')
+    try {
+      await api.delete(`/deals/${id}/collaborators/${userId}`)
+      setCollaborators((current) => current.filter((collaborator) => collaborator.id !== userId))
+    } catch (requestError) {
+      setError(errorMessage(requestError, 'Unable to remove collaborator.'))
+    } finally { setSaving(false) }
+  }
+
   async function remove() {
     if (!window.confirm('Delete this deal?')) return
     try { await api.delete(`/deals/${id}`); navigate('/deals') } catch (requestError) { setError(errorMessage(requestError, 'Unable to delete deal.')) }
@@ -109,6 +143,8 @@ export default function DealDetailPage() {
   const closed = deal.stage === 'WON' || deal.stage === 'LOST'
   const nextStages = forwardActions[deal.stage] || []
   const previousStage = backwardActions[deal.stage]
+  const canManageCollaborators = user.role === 'MANAGER' || deal.ownerId === user.id
+  const availableCollaborators = candidateUsers.filter((candidate) => candidate.id !== deal.ownerId && !collaborators.some((collaborator) => collaborator.id === candidate.id))
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
@@ -134,6 +170,12 @@ export default function DealDetailPage() {
               {previousStage && <form onSubmit={moveBack}><label className="block text-sm text-slate-300">Reason for moving backward<textarea className="mt-1 min-h-20 w-full rounded border border-slate-700 bg-slate-950 p-2" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain why the deal is moving back." required /></label><button className="mt-3 rounded border border-slate-600 px-4 py-2 text-slate-200 disabled:opacity-50" disabled={lifecycleSaving}>{lifecycleSaving ? 'Updating...' : `Move back to ${stages[previousStage]}`}</button></form>}
             </div>
           )}
+        </section>
+
+        <section className="mt-8 rounded border border-slate-800 bg-slate-900 p-6" aria-labelledby="collaborators-heading">
+          <h2 id="collaborators-heading" className="text-xl font-semibold">Collaborators</h2>
+          {collaborators.length === 0 ? <p className="mt-4 text-slate-400">No collaborators assigned.</p> : <ul className="mt-4 space-y-3">{collaborators.map((collaborator) => <li className="flex items-center justify-between gap-4 rounded border border-slate-700 p-3" key={collaborator.id}><div><p className="font-medium">{collaborator.email}</p><p className="text-sm text-slate-400">Sales Rep</p></div>{canManageCollaborators && <button className="rounded border border-red-700 px-3 py-1 text-sm text-red-200 disabled:opacity-50" disabled={saving} onClick={() => removeCollaborator(collaborator.id)}>Remove</button>}</li>)}</ul>}
+          {canManageCollaborators && <form className="mt-5 flex flex-col gap-3 sm:flex-row" onSubmit={addCollaborator}><select className="flex-1 rounded border border-slate-700 bg-slate-950 p-2" value={selectedCollaborator} onChange={(event) => setSelectedCollaborator(event.target.value)}><option value="">Select Sales Rep</option>{availableCollaborators.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.email}</option>)}</select><button className="rounded bg-sky-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50" disabled={!selectedCollaborator || saving}>{saving ? 'Adding...' : 'Add Collaborator'}</button></form>}
         </section>
 
         <form className="mt-8 rounded border border-slate-800 bg-slate-900 p-6" onSubmit={save}>

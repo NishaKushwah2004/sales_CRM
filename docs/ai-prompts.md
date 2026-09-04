@@ -112,3 +112,17 @@ The existing schema already contained `DealStage`, `closedAt`, `stageBeforeClose
 ### What you corrected
 
 The first UI patch placed new React hooks inside the existing loading effect because the original page used a compressed one-line JSX return. Frontend lint exposed the mistake; the page was then rewritten in formatted JSX while retaining its existing edit, owner, company, and delete behavior. The final lint pass succeeded.
+
+## Phase 6 - Deal Collaborators
+
+### Prompt
+
+Implement only Phase 6 Collaborators in the current Phase 5 Sales CRM. Inspect the current repository first and preserve the existing schema, deal access, CRUD, lifecycle, authentication, styling, and routing. Reuse the existing `DealCollaborator` model; add server-side list, candidate, add, and remove endpoints with manager/owner authorization, Sales Rep-only validation, duplicate handling, immediate access changes, collaborator update permissions, detail-page controls, focused tests, and documentation. Do not implement Phase 7 or later.
+
+### What you got
+
+The existing composite-key collaborator model and owner-or-collaborator deal access predicate were sufficient, so no migration was needed. The backend gained safe collaborator endpoints and the detail page gained list, add, and remove controls with frontend filtering for usability.
+
+### What you corrected
+
+The implementation kept candidate lookup separate from manager-only owner lookup because deal owners and collaborators have different authorization needs. Server-side checks remain authoritative for target role, duplicate membership, owner exclusion, and manager/owner membership management.

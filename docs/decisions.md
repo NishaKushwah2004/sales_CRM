@@ -174,3 +174,27 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Update the deal and append its `STAGE_CHANGED` event in one Prisma transaction.
 - **Rejected:** Performing the two writes independently.
 - **Why:** A lifecycle state without its immutable event, or an event without the state change, would make the audit record unreliable.
+
+## Phase 6 Decision 1
+
+- **Chose:** Reuse the existing collaborator relationship as the deal-access boundary.
+- **Rejected:** Adding a separate permission table or exposing collaborator membership only in the frontend.
+- **Why:** The schema and Phase 4 access predicate already model owner-or-collaborator visibility, so membership changes immediately and consistently affect server-side access.
+
+## Phase 6 Decision 2
+
+- **Chose:** Only managers and the deal owner can add or remove collaborators.
+- **Rejected:** Allowing any collaborator to manage the team.
+- **Why:** The README assigns membership management to the manager or owner; collaborators receive deal access and update ability without gaining administrative control.
+
+## Phase 6 Decision 3
+
+- **Chose:** Permit only Sales Rep users as collaborators and keep owner membership separate.
+- **Rejected:** Adding managers or duplicating the owner as a collaborator.
+- **Why:** The assignment defines collaborators as Sales Reps, and the owner already has access without a second membership meaning.
+
+## Phase 6 Decision 4
+
+- **Chose:** Rely on the existing composite primary key for uniqueness and translate duplicate errors into a clear API response.
+- **Rejected:** A pre-check alone or a second uniqueness mechanism.
+- **Why:** The database constraint remains authoritative under concurrent requests, while the route avoids leaking raw Prisma errors.
