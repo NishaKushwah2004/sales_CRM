@@ -127,6 +127,20 @@ The existing composite-key collaborator model and owner-or-collaborator deal acc
 
 The implementation kept candidate lookup separate from manager-only owner lookup because deal owners and collaborators have different authorization needs. Server-side checks remain authoritative for target role, duplicate membership, owner exclusion, and manager/owner membership management.
 
+## Phase 8 - Bulk Actions and CSV Export
+
+### Prompt
+
+Implement only Phase 8 in the current Phase 7 Sales CRM. Preserve existing authentication, authorization, CRUD, lifecycle, collaborator access, and server-side finding. Add manager-only bulk reassignment and one-stage bulk advancement with per-deal results and immutable events, plus a server-generated authorized open-deal CSV with exact weighted values. Update the existing Deals page for visible-page selection, bulk actions, results, and download. Do not implement Phase 9 or later.
+
+### What you got
+
+The backend gained independent per-deal bulk endpoints, shared lifecycle persistence for stage advancement, owner-reassignment events, and an unpaginated server-side CSV query. The existing Deals page gained manager-only selection/actions and a server download control.
+
+### What you corrected
+
+The first request harness used a shared mutable in-memory auth adapter and produced false role-isolation results. Those results were discarded rather than changing authorization code. The lifecycle helper was then tightened to capture old stage and owner values before updates so event/result data remains stable under test doubles and real Prisma behavior.
+
 ## Phase 7 - Deal Finding
 
 ### Prompt

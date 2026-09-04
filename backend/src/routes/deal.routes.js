@@ -1,8 +1,9 @@
 const express = require('express')
-const { UserRole, DealStage, Prisma } = require('../../../node_modules/@prisma/client')
+const { UserRole, DealStage, DealEventType, Prisma } = require('../../../node_modules/@prisma/client')
 const prisma = require('../lib/prisma')
 const { requireAuth } = require('../middleware/auth')
-const { forwardTransitions, backwardTransitions } = require('../config/dealLifecycle')
+const { forwardTransitions, backwardTransitions, stageProbabilities } = require('../config/dealLifecycle')
+const { nextForwardStage, persistStageTransition } = require('../lib/dealLifecycle')
 
 const router = express.Router()
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -143,6 +144,141 @@ router.get('/', async (req, res, next) => {
       prisma.deal.count({ where }),
     ])
     return res.json({ success: true, data: { deals, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+function invalidBulkRequest(body) {
+  if (!Array.isArray(body?.dealIds) || body.dealIds.length === 0) return 'dealIds must be a non-empty array.'
+  if (new Set(body.dealIds).size !== body.dealIds.length) return 'dealIds must not contain duplicates.'
+  return null
+}
+
+function bulkFailure(dealId, reason) {
+  return { dealId, success: false, reason }
+}
+
+router.post('/bulk-reassign', async (req, res, next) => {
+  try {
+    if (req.user.role !== UserRole.MANAGER) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only a manager can perform bulk operations.' } })
+    }
+    const validationError = invalidBulkRequest(req.body)
+    if (validationError || !validId(req.body?.ownerId)) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: validationError || 'A valid ownerId is required.' } })
+    }
+    const owner = await findSalesRep(req.body.ownerId)
+    if (!owner) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_OWNER', message: 'Bulk deal owner must be an active sales rep.' } })
+    }
+
+    const results = []
+    for (const dealId of req.body.dealIds) {
+      if (!validId(dealId)) {
+        results.push(bulkFailure(dealId, 'Deal id is invalid.'))
+        continue
+      }
+      const deal = await prisma.deal.findUnique({ where: { id: dealId } })
+      if (!deal || deal.deletedAt) {
+        results.push(bulkFailure(dealId, 'Deal does not exist or is deleted.'))
+        continue
+      }
+      if (deal.ownerId === owner.id) {
+        results.push(bulkFailure(dealId, 'Deal already has this owner.'))
+        continue
+      }
+      const previousOwnerId = deal.ownerId
+      try {
+        await prisma.$transaction(async (transaction) => {
+          await transaction.deal.update({ where: { id: deal.id }, data: { ownerId: owner.id } })
+          await transaction.dealEvent.create({
+            data: {
+              dealId: deal.id,
+              actorId: req.user.id,
+              type: DealEventType.OWNER_REASSIGNED,
+              previousOwnerId,
+              newOwnerId: owner.id,
+            },
+          })
+        })
+        results.push({ dealId, success: true, previousOwnerId, newOwnerId: owner.id })
+      } catch (error) {
+        results.push(bulkFailure(dealId, 'Deal could not be reassigned.'))
+      }
+    }
+    return res.json({ success: true, data: { results } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/bulk-advance', async (req, res, next) => {
+  try {
+    if (req.user.role !== UserRole.MANAGER) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only a manager can perform bulk operations.' } })
+    }
+    const validationError = invalidBulkRequest(req.body)
+    if (validationError) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: validationError } })
+    }
+
+    const results = []
+    for (const dealId of req.body.dealIds) {
+      if (!validId(dealId)) {
+        results.push(bulkFailure(dealId, 'Deal id is invalid.'))
+        continue
+      }
+      const deal = await prisma.deal.findUnique({ where: { id: dealId } })
+      if (!deal || deal.deletedAt) {
+        results.push(bulkFailure(dealId, 'Deal does not exist or is deleted.'))
+        continue
+      }
+      if (deal.stage === DealStage.WON || deal.stage === DealStage.LOST) {
+        results.push(bulkFailure(dealId, 'Deal is already closed.'))
+        continue
+      }
+      const newStage = nextForwardStage(deal.stage)
+      if (!newStage) {
+        results.push(bulkFailure(dealId, 'Deal cannot advance from its current stage.'))
+        continue
+      }
+      try {
+        const transition = await prisma.$transaction(async (transaction) => persistStageTransition(transaction, deal, newStage, req.user.id))
+        results.push({ dealId, success: true, ...transition })
+      } catch (error) {
+        results.push(bulkFailure(dealId, 'Deal could not be advanced.'))
+      }
+    }
+    return res.json({ success: true, data: { results } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+function csvValue(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`
+}
+
+router.get('/export', async (req, res, next) => {
+  try {
+    const deals = await prisma.deal.findMany({
+      where: { deletedAt: null, stage: { notIn: [DealStage.WON, DealStage.LOST] }, ...dealAccess(req.user) },
+      include: { company: { select: { name: true } } },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+    })
+    const rows = [
+      ['Company', 'Stage', 'Value', 'Stage Weighted Value'].map(csvValue).join(','),
+      ...deals.map((deal) => [
+        deal.company.name,
+        deal.stage,
+        new Prisma.Decimal(deal.value).toFixed(2),
+        new Prisma.Decimal(deal.value).mul(stageProbabilities[deal.stage]).toFixed(2),
+      ].map(csvValue).join(',')),
+    ]
+    res.type('text/csv')
+    res.set('Content-Disposition', 'attachment; filename="sales-crm-open-deals.csv"')
+    return res.send(rows.join('\r\n'))
   } catch (error) {
     return next(error)
   }
@@ -310,25 +446,7 @@ router.patch('/:id/stage', async (req, res, next) => {
     }
 
     const updated = await prisma.$transaction(async (transaction) => {
-      await transaction.deal.update({
-        where: { id: deal.id },
-        data: {
-          stage: requestedStage,
-          ...(requestedStage === DealStage.WON || requestedStage === DealStage.LOST
-            ? { closedAt: new Date(), stageBeforeClose: deal.stage }
-            : {}),
-        },
-      })
-      await transaction.dealEvent.create({
-        data: {
-          dealId: deal.id,
-          actorId: req.user.id,
-          type: 'STAGE_CHANGED',
-          oldStage: deal.stage,
-          newStage: requestedStage,
-          backwardReason: isBackward ? reason : undefined,
-        },
-      })
+      await persistStageTransition(transaction, deal, requestedStage, req.user.id, isBackward ? reason : undefined)
       return transaction.deal.findUnique({ where: { id: deal.id }, include })
     })
 

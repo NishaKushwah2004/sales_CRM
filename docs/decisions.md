@@ -210,3 +210,15 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Use an explicit sort allowlist with `lastUpdate` as the default and `id ASC` as a deterministic tie-breaker.
 - **Rejected:** Passing arbitrary query-string field names into Prisma `orderBy`.
 - **Why:** The API exposes only the three assignment-approved sort concepts and pagination remains stable when records share the same value or timestamp.
+
+## Phase 8 Decision 1
+
+- **Chose:** Return an independent result for every selected ID and persist each successful operation transactionally with its event.
+- **Rejected:** All-or-nothing batch transactions or silently dropping invalid records.
+- **Why:** The assignment requires mixed selections to report exactly which deals succeeded and why others were rejected, while each successful state/history pair must remain atomic.
+
+## Phase 8 Decision 2
+
+- **Chose:** Generate CSV on the server from a separate unpaginated authorized open-deal query.
+- **Rejected:** Building CSV in React from the visible page or stitching paginated API responses in the browser.
+- **Why:** The export must include the complete authorized set, preserve access control, and calculate weighted monetary values consistently with backend configuration.

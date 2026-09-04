@@ -85,3 +85,15 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 **Estimated vs actual:** the phase was implemented as a focused backend/query and page update during the current session; no separate estimate was recorded in the existing project notes.
 
 **Deviation/cut:** no bulk actions, CSV export, dashboard, timeline, alerts, schema changes, or other Phase 8+ functionality was added.
+
+## Phase 8 - Bulk Actions and CSV Export
+
+**Planned work:** add manager-only bulk reassignment and one-stage advancement with per-deal results and immutable events, plus a server-generated export of every authorized open deal with stage-weighted value.
+
+**Actual work:** added validated bulk endpoints with independent per-deal transactions, reused the shared lifecycle persistence helper, recorded owner/stage events, added escaped exact-decimal CSV generation, and added manager selection/actions plus download controls to the existing Deals page.
+
+**Testing:** backend syntax, Prisma validation/generation, frontend lint/build, and request-level bulk authorization/persistence checks were run. The request harness verified mixed results, duplicate and invalid targets, manager-only access, event creation, close fields, and CSV response headers. Database-backed verification remains blocked by unavailable PostgreSQL/Docker infrastructure.
+
+**Estimated vs actual:** implemented as a focused extension during the current session; no separate estimate was recorded in the existing project notes.
+
+**Deviation/cut:** no dashboard, analytics, timeline UI, alerts, notifications, schema migration, or other Phase 9+ feature was added.

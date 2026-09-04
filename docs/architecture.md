@@ -39,7 +39,7 @@ A representative create-deal request is: the authenticated browser submits title
 
 Deal access is enforced in the server query: managers can access every non-deleted deal, while Sales Reps can access deals they own or where they are an existing collaborator. The React UI does not implement authorization by itself.
 
-Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that later support immutable history. Server-side search/filter/sort/pagination, bulk actions, reporting dashboard, timeline UI, and past-due alert UI remain later phases.
+Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that later support immutable history. Server-side search/filter/sort/pagination, reporting dashboard, timeline UI, and past-due alert UI remain later phases.
 
 ## Phase 5 - Deal lifecycle
 
@@ -58,3 +58,9 @@ The existing `DealCollaborator` composite key remains the single source of truth
 `GET /api/deals` now accepts `search`, `companyId`, `stage`, `ownerId`, `sortBy`, `sortOrder`, `page`, and `pageSize`. Express validates these parameters, combines search and field filters with the existing manager-or-owner-or-collaborator access predicate, and passes the resulting `where`, allowlisted `orderBy`, `skip`, and `take` directly to Prisma. The matching `count` uses the same `where` conditions, so deleted or unauthorized deals cannot affect returned results or totals.
 
 The React Deals page sends each search, filter, sort, and pagination change to the API and renders only the returned page. A representative request is `GET /api/deals?search=acme&stage=PROPOSAL&sortBy=value&sortOrder=desc&page=1&pageSize=10`; the API returns `deals` plus `pagination.page`, `pageSize`, `total`, and `totalPages`. No client-side full-dataset filtering or pagination was added.
+
+## Phase 8 - Bulk actions and CSV export
+
+Managers use `POST /api/deals/bulk-reassign` and `POST /api/deals/bulk-advance`. The server validates the request once, then processes each selected deal independently so every ID receives a success or rejection result. Each successful reassignment or stage advance is persisted in its own Prisma transaction together with the corresponding immutable `DealEvent`; one rejected deal does not roll back unrelated successful deals. Bulk advancement calls the shared lifecycle persistence helper used by the single-stage endpoint, including close-field handling for `NEGOTIATION` to `WON`.
+
+`GET /api/deals/export` queries all non-deleted, open deals directly, applying the same manager-or-owner-or-collaborator access predicate without Phase 7 pagination. Express generates escaped CSV rows with company, stage, exact value, and stage-weighted value using the centralized lifecycle probabilities. Managers receive all open deals; Sales Reps receive only their authorized open deals. The Deals page selects only visible rows for bulk actions and asks the server to generate the download.

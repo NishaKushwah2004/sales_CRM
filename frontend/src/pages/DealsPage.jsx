@@ -22,6 +22,11 @@ export default function DealsPage() {
   const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 0 })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [selectedDealIds, setSelectedDealIds] = useState([])
+  const [bulkOwnerId, setBulkOwnerId] = useState('')
+  const [bulkResults, setBulkResults] = useState([])
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [refreshVersion, setRefreshVersion] = useState(0)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -64,7 +69,7 @@ export default function DealsPage() {
       }
     }
     loadDeals()
-  }, [filters.search, filters.companyId, filters.stage, filters.ownerId, filters.sortBy, filters.sortOrder, filters.page, filters.pageSize])
+  }, [filters.search, filters.companyId, filters.stage, filters.ownerId, filters.sortBy, filters.sortOrder, filters.page, filters.pageSize, refreshVersion])
 
   function change(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -100,12 +105,66 @@ export default function DealsPage() {
     }
   }
 
+  function toggleDeal(dealId) {
+    setSelectedDealIds((current) => current.includes(dealId) ? current.filter((id) => id !== dealId) : [...current, dealId])
+  }
+
+  function toggleVisibleDeals() {
+    const visibleIds = deals.map((deal) => deal.id)
+    setSelectedDealIds((current) => visibleIds.every((id) => current.includes(id)) ? current.filter((id) => !visibleIds.includes(id)) : [...new Set([...current, ...visibleIds])])
+  }
+
+  async function bulkReassign() {
+    if (!bulkOwnerId || selectedDealIds.length === 0) return
+    setBulkSaving(true); setError('')
+    try {
+      const response = await api.post('/deals/bulk-reassign', { dealIds: selectedDealIds, ownerId: bulkOwnerId })
+      setBulkResults(response.data.data.results)
+      setSelectedDealIds([])
+      setRefreshVersion((current) => current + 1)
+    } catch (requestError) {
+      setError(errorMessage(requestError, 'Unable to reassign selected deals.'))
+    } finally { setBulkSaving(false) }
+  }
+
+  async function bulkAdvance() {
+    if (selectedDealIds.length === 0) return
+    setBulkSaving(true); setError('')
+    try {
+      const response = await api.post('/deals/bulk-advance', { dealIds: selectedDealIds })
+      setBulkResults(response.data.data.results)
+      setSelectedDealIds([])
+      setRefreshVersion((current) => current + 1)
+    } catch (requestError) {
+      setError(errorMessage(requestError, 'Unable to advance selected deals.'))
+    } finally { setBulkSaving(false) }
+  }
+
+  async function exportCsv() {
+    setError('')
+    try {
+      const response = await api.get('/deals/export', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'sales-crm-open-deals.csv'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (requestError) {
+      setError(errorMessage(requestError, 'Unable to export open deals.'))
+    }
+  }
+
+  const allVisibleSelected = deals.length > 0 && deals.every((deal) => selectedDealIds.includes(deal.id))
+
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
       <div className="mx-auto max-w-6xl">
         <Link className="text-sm text-sky-400" to="/">Back to account</Link>
         <h1 className="mt-4 text-3xl font-bold">Deals</h1>
-        <p className="mt-2 text-slate-400">Search and manage your accessible deals. Managers can see every deal.</p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3"><p className="text-slate-400">Search and manage your accessible deals. Managers can see every deal.</p><button className="rounded border border-slate-600 px-4 py-2 text-sm text-slate-200" onClick={exportCsv}>Export open deals</button></div>
         {error && <p className="mt-4 rounded bg-red-950 p-3 text-red-200">{error}</p>}
 
         <section className="mt-8 rounded border border-slate-800 bg-slate-900 p-5">
@@ -120,10 +179,12 @@ export default function DealsPage() {
           </div>
         </section>
 
+        {user.role === 'MANAGER' && <section className="mt-6 rounded border border-slate-800 bg-slate-900 p-5"><div className="flex flex-wrap items-center gap-3"><span className="text-sm text-slate-300">{selectedDealIds.length} selected</span><button className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200" onClick={toggleVisibleDeals}>{allVisibleSelected ? 'Clear visible' : 'Select all visible'}</button><select className="rounded border border-slate-700 bg-slate-950 p-2 text-sm" value={bulkOwnerId} onChange={(event) => setBulkOwnerId(event.target.value)}><option value="">Reassign to...</option>{owners.map((owner) => <option key={owner.id} value={owner.id}>{owner.email}</option>)}</select><button className="rounded bg-sky-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50" disabled={!bulkOwnerId || selectedDealIds.length === 0 || bulkSaving} onClick={bulkReassign}>Bulk reassign</button><button className="rounded border border-sky-500 px-3 py-2 text-sm text-sky-300 disabled:opacity-50" disabled={selectedDealIds.length === 0 || bulkSaving} onClick={bulkAdvance}>Bulk advance</button></div>{bulkResults.length > 0 && <ul className="mt-4 space-y-2 text-sm">{bulkResults.map((result) => <li className={result.success ? 'text-emerald-300' : 'text-red-300'} key={result.dealId}>{result.dealId}: {result.success ? `Success${result.oldStage ? ` (${result.oldStage} to ${result.newStage})` : ''}` : `Rejected - ${result.reason}`}</li>)}</ul>}</section>}
+
         <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
           <div>
             <div className="mb-3 flex items-center justify-between text-sm text-slate-400"><span>{pagination.total} matching deal{pagination.total === 1 ? '' : 's'}</span><span>Page {pagination.page} of {Math.max(1, pagination.totalPages)}</span></div>
-            {loading ? <p>Loading deals...</p> : deals.length === 0 ? <p className="rounded border border-dashed border-slate-700 p-6 text-slate-400">No deals match the current search.</p> : <ul className="space-y-3">{deals.map((deal) => <li className="rounded border border-slate-800 bg-slate-900 p-4" key={deal.id}><div className="flex items-start justify-between gap-4"><div><Link className="font-semibold text-sky-300" to={`/deals/${deal.id}`}>{deal.title}</Link><p className="mt-1 text-sm text-slate-300">{deal.company.name} · {stages[deal.stage]}</p><p className="mt-1 text-sm text-slate-400">₹ {deal.value} · Close {deal.expectedCloseDate.slice(0, 10)} · {deal.owner.email}</p></div><button className="rounded border border-red-700 px-3 py-1 text-sm text-red-200" onClick={() => remove(deal.id)}>Delete</button></div></li>)}</ul>}
+            {loading ? <p>Loading deals...</p> : deals.length === 0 ? <p className="rounded border border-dashed border-slate-700 p-6 text-slate-400">No deals match the current search.</p> : <ul className="space-y-3">{deals.map((deal) => <li className="rounded border border-slate-800 bg-slate-900 p-4" key={deal.id}><div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3">{user.role === 'MANAGER' && <input aria-label={`Select ${deal.title}`} type="checkbox" checked={selectedDealIds.includes(deal.id)} onChange={() => toggleDeal(deal.id)} />}<div><Link className="font-semibold text-sky-300" to={`/deals/${deal.id}`}>{deal.title}</Link><p className="mt-1 text-sm text-slate-300">{deal.company.name} · {stages[deal.stage]}</p><p className="mt-1 text-sm text-slate-400">₹ {deal.value} · Close {deal.expectedCloseDate.slice(0, 10)} · {deal.owner.email}</p></div></div><button className="rounded border border-red-700 px-3 py-1 text-sm text-red-200" onClick={() => remove(deal.id)}>Delete</button></div></li>)}</ul>}
             <div className="mt-5 flex items-center justify-between"><button className="rounded border border-slate-700 px-4 py-2 text-sm disabled:opacity-40" disabled={loading || pagination.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}>Previous</button><button className="rounded border border-slate-700 px-4 py-2 text-sm disabled:opacity-40" disabled={loading || pagination.page >= pagination.totalPages} onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}>Next</button></div>
           </div>
 
