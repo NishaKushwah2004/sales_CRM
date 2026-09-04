@@ -21,13 +21,16 @@ export default function DealDetailPage() {
   const [companies, setCompanies] = useState([])
   const [owners, setOwners] = useState([])
   const [collaborators, setCollaborators] = useState([])
+  const [history, setHistory] = useState([])
   const [candidateUsers, setCandidateUsers] = useState([])
   const [selectedCollaborator, setSelectedCollaborator] = useState('')
+  const [noteBody, setNoteBody] = useState('')
   const [form, setForm] = useState(empty)
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [lifecycleSaving, setLifecycleSaving] = useState(false)
+  const [noteSaving, setNoteSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -39,17 +42,19 @@ export default function DealDetailPage() {
           user.role === 'MANAGER' ? api.get('/deals/owners') : Promise.resolve(null),
         ])
         const current = dealResponse.data.data.deal
-        const [collaboratorResponse, candidateResponse] = await Promise.all([
+        const [collaboratorResponse, candidateResponse, historyResponse] = await Promise.all([
           api.get(`/deals/${id}/collaborators`),
           current.ownerId === user.id || user.role === 'MANAGER'
             ? api.get(`/deals/${id}/collaborator-candidates`)
             : Promise.resolve({ data: { data: { candidates: [] } } }),
+          api.get(`/deals/${id}/history`),
         ])
         setDeal(current)
         setForm({ title: current.title, value: String(current.value), expectedCloseDate: current.expectedCloseDate.slice(0, 10), companyId: current.companyId, ownerId: current.ownerId })
         setCompanies(companyResponse.data.data.companies)
         setOwners(ownerResponse?.data.data.owners || [])
         setCollaborators(collaboratorResponse.data.data.collaborators)
+        setHistory(historyResponse.data.data.events)
         setCandidateUsers(current.ownerId === user.id || user.role === 'MANAGER' ? candidateResponse.data.data.candidates : [])
       } catch (requestError) {
         setError(errorMessage(requestError, 'Unable to load deal.'))
@@ -62,6 +67,11 @@ export default function DealDetailPage() {
 
   function change(field, value) { setForm((current) => ({ ...current, [field]: value })) }
 
+  async function loadHistory() {
+    const response = await api.get(`/deals/${id}/history`)
+    setHistory(response.data.data.events)
+  }
+
   async function save(event) {
     event.preventDefault()
     setSaving(true); setError('')
@@ -72,6 +82,7 @@ export default function DealDetailPage() {
       const updated = response.data.data.deal
       setDeal(updated)
       setForm({ title: updated.title, value: String(updated.value), expectedCloseDate: updated.expectedCloseDate.slice(0, 10), companyId: updated.companyId, ownerId: updated.ownerId })
+      await loadHistory()
     } catch (requestError) {
       setError(errorMessage(requestError, 'Unable to update deal.'))
     } finally { setSaving(false) }
@@ -83,6 +94,7 @@ export default function DealDetailPage() {
       const response = await api.patch(`/deals/${id}/stage`, { stage: nextStage, ...(backwardReason ? { reason: backwardReason } : {}) })
       setDeal(response.data.data.deal)
       setReason('')
+      await loadHistory()
     } catch (requestError) {
       setError(errorMessage(requestError, 'Unable to change deal stage.'))
     } finally { setLifecycleSaving(false) }
@@ -103,6 +115,7 @@ export default function DealDetailPage() {
     try {
       const response = await api.post(`/deals/${id}/reopen`)
       setDeal(response.data.data.deal)
+      await loadHistory()
     } catch (requestError) {
       setError(errorMessage(requestError, 'Unable to reopen deal.'))
     } finally { setLifecycleSaving(false) }
@@ -129,6 +142,23 @@ export default function DealDetailPage() {
     } catch (requestError) {
       setError(errorMessage(requestError, 'Unable to remove collaborator.'))
     } finally { setSaving(false) }
+  }
+
+  async function addNote(event) {
+    event.preventDefault()
+    const trimmedNote = noteBody.trim()
+    if (!trimmedNote) {
+      setError('A note is required.')
+      return
+    }
+    setNoteSaving(true); setError('')
+    try {
+      await api.post(`/deals/${id}/notes`, { body: trimmedNote })
+      setNoteBody('')
+      await loadHistory()
+    } catch (requestError) {
+      setError(errorMessage(requestError, 'Unable to add note.'))
+    } finally { setNoteSaving(false) }
   }
 
   async function remove() {
@@ -176,6 +206,12 @@ export default function DealDetailPage() {
           <h2 id="collaborators-heading" className="text-xl font-semibold">Collaborators</h2>
           {collaborators.length === 0 ? <p className="mt-4 text-slate-400">No collaborators assigned.</p> : <ul className="mt-4 space-y-3">{collaborators.map((collaborator) => <li className="flex items-center justify-between gap-4 rounded border border-slate-700 p-3" key={collaborator.id}><div><p className="font-medium">{collaborator.email}</p><p className="text-sm text-slate-400">Sales Rep</p></div>{canManageCollaborators && <button className="rounded border border-red-700 px-3 py-1 text-sm text-red-200 disabled:opacity-50" disabled={saving} onClick={() => removeCollaborator(collaborator.id)}>Remove</button>}</li>)}</ul>}
           {canManageCollaborators && <form className="mt-5 flex flex-col gap-3 sm:flex-row" onSubmit={addCollaborator}><select className="flex-1 rounded border border-slate-700 bg-slate-950 p-2" value={selectedCollaborator} onChange={(event) => setSelectedCollaborator(event.target.value)}><option value="">Select Sales Rep</option>{availableCollaborators.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.email}</option>)}</select><button className="rounded bg-sky-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50" disabled={!selectedCollaborator || saving}>{saving ? 'Adding...' : 'Add Collaborator'}</button></form>}
+        </section>
+
+        <section className="mt-8 rounded border border-slate-800 bg-slate-900 p-6" aria-labelledby="history-heading">
+          <h2 id="history-heading" className="text-xl font-semibold">History</h2>
+          {history.length === 0 ? <p className="mt-4 text-slate-400">No history recorded yet.</p> : <ol className="mt-5 space-y-4 border-l border-slate-700 pl-5">{history.map((event) => <li className="relative" key={event.id}><span className="absolute left-[-1.6rem] top-1 h-2 w-2 rounded-full bg-sky-400" /><p className="font-medium">{event.type === 'DEAL_CREATED' ? 'Deal created' : event.type === 'STAGE_CHANGED' ? 'Stage changed' : event.type === 'OWNER_REASSIGNED' ? 'Owner reassigned' : event.type === 'NOTE_ADDED' ? 'Note added' : event.type}</p>{event.type === 'STAGE_CHANGED' && <p className="mt-1 text-sm text-slate-300">{event.oldStage} → {event.newStage}{event.backwardReason && <span className="block text-slate-400">Reason: {event.backwardReason}</span>}</p>}{event.type === 'OWNER_REASSIGNED' && <p className="mt-1 text-sm text-slate-300">{event.previousOwner?.email || 'Unknown owner'} → {event.newOwner?.email || 'Unknown owner'}</p>}{event.type === 'NOTE_ADDED' && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{event.noteBody}</p>}<p className="mt-1 text-xs text-slate-500">by {event.actor?.email || 'Unknown actor'} · {new Date(event.occurredAt).toLocaleString()}</p></li>)}</ol>}
+          <form className="mt-6" onSubmit={addNote}><label className="block text-sm text-slate-300">Add note<textarea className="mt-1 min-h-20 w-full rounded border border-slate-700 bg-slate-950 p-2" value={noteBody} onChange={(event) => setNoteBody(event.target.value)} maxLength={5000} placeholder="Add a note to this deal." /></label><button className="mt-3 rounded border border-slate-600 px-4 py-2 text-slate-200 disabled:opacity-50" disabled={noteSaving || !noteBody.trim()}>{noteSaving ? 'Adding...' : 'Add Note'}</button></form>
         </section>
 
         <form className="mt-8 rounded border border-slate-800 bg-slate-900 p-6" onSubmit={save}>

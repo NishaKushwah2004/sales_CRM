@@ -300,11 +300,58 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ success: false, error: { code: 'INVALID_OWNER', message: 'Deal owner must be a sales rep.' } })
     }
 
-    const deal = await prisma.deal.create({
-      data: { ...fields, companyId: company.id, ownerId: owner.id, stage: DealStage.NEW },
-      include,
+    const deal = await prisma.$transaction(async (transaction) => {
+      const created = await transaction.deal.create({
+        data: { ...fields, companyId: company.id, ownerId: owner.id, stage: DealStage.NEW },
+        include,
+      })
+      await transaction.dealEvent.create({
+        data: { dealId: created.id, actorId: req.user.id, type: DealEventType.DEAL_CREATED },
+      })
+      return created
     })
     return res.status(201).json({ success: true, data: { deal } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/:id/history', async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+    const events = await prisma.dealEvent.findMany({
+      where: { dealId: deal.id },
+      include: {
+        actor: { select: { id: true, email: true, role: true } },
+        previousOwner: { select: { id: true, email: true, role: true } },
+        newOwner: { select: { id: true, email: true, role: true } },
+      },
+      orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+    })
+    return res.json({ success: true, data: { events } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:id/notes', async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+    const noteBody = typeof req.body?.body === 'string' ? req.body.body.trim() : ''
+    if (!noteBody || noteBody.length > 5000) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_NOTE', message: 'A note between 1 and 5000 characters is required.' } })
+    }
+    const event = await prisma.dealEvent.create({
+      data: { dealId: deal.id, actorId: req.user.id, type: DealEventType.NOTE_ADDED, noteBody },
+      include: { actor: { select: { id: true, email: true, role: true } } },
+    })
+    return res.status(201).json({ success: true, data: { event } })
   } catch (error) {
     return next(error)
   }
@@ -473,7 +520,7 @@ router.post('/:id/reopen', async (req, res, next) => {
         data: {
           dealId: deal.id,
           actorId: req.user.id,
-          type: 'STAGE_CHANGED',
+          type: DealEventType.STAGE_CHANGED,
           oldStage: deal.stage,
           newStage: deal.stageBeforeClose,
         },
@@ -526,11 +573,29 @@ router.patch('/:id', async (req, res, next) => {
       ownerId = owner.id
     }
 
-    const updated = await prisma.deal.update({
-      where: { id: deal.id },
-      data: { ...fields, companyId, ownerId },
-      include,
-    })
+    const updated = ownerId !== deal.ownerId
+      ? await prisma.$transaction(async (transaction) => {
+        const reassigned = await transaction.deal.update({
+          where: { id: deal.id },
+          data: { ...fields, companyId, ownerId },
+          include,
+        })
+        await transaction.dealEvent.create({
+          data: {
+            dealId: deal.id,
+            actorId: req.user.id,
+            type: DealEventType.OWNER_REASSIGNED,
+            previousOwnerId: deal.ownerId,
+            newOwnerId: ownerId,
+          },
+        })
+        return reassigned
+      })
+      : await prisma.deal.update({
+        where: { id: deal.id },
+        data: { ...fields, companyId, ownerId },
+        include,
+      })
     return res.json({ success: true, data: { deal: updated } })
   } catch (error) {
     return next(error)

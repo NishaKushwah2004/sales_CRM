@@ -109,3 +109,15 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 **Estimated vs actual:** implemented as a focused dashboard endpoint and page during the current session; no separate estimate was recorded in the existing project notes.
 
 **Deviation/cut:** no timeline UI, alerts, notifications, real-time updates, CSV/bulk changes, schema migration, or Phase 10+ functionality was added.
+
+## Phase 10 - Immutable Deal History
+
+**Intended work:** expose authorized chronological DealEvent history, preserve append-only event creation for deal mutations, add minimal note creation using `noteBody`, and render a read-only per-deal timeline.
+
+**Actual work:** added the history and note endpoints, added missing creation and normal owner-reassignment events, reused existing transactional lifecycle/bulk event writes, and added timeline/note UI to the existing detail page without introducing a new table.
+
+**Testing:** isolated request-level tests passed for manager, owner, collaborator, unrelated rep, and unauthenticated history access; chronological ordering, event fields, stage/owner/note creation, note validation, and absent mutation routes were verified. Backend syntax, Prisma validation/generation, frontend lint/build, diagnostics, and diff checks were also run.
+
+**Estimated vs actual:** implemented as a focused history endpoint and detail-page extension during the current session; no separate estimate was recorded in the existing project notes.
+
+**Limitations:** PostgreSQL and Docker Desktop remain unavailable, so database-backed integration testing was not claimed.

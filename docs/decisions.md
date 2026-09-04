@@ -234,3 +234,21 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Use Recharts for stage, owner, and weekly Won visualizations with Monday-start UTC buckets.
 - **Rejected:** Adding another chart dependency or letting the browser derive week boundaries.
 - **Why:** Recharts is already installed, and a single documented server-side week boundary keeps date-sensitive results consistent.
+
+## Phase 10 Decision 1
+
+- **Chose:** Reuse `DealEvent` as the single append-only history source and expose only a per-deal read endpoint.
+- **Rejected:** Creating a second timeline table or event mutation APIs.
+- **Why:** The existing event model already stores stage, owner, actor, and note details, and read-only access preserves the assignment's immutable history requirement.
+
+## Phase 10 Decision 2
+
+- **Chose:** Add notes as validated plain-text `NOTE_ADDED` events rather than a separate Note model.
+- **Rejected:** Editable/deletable comments, threads, or a parallel notes table.
+- **Why:** `noteBody` already supports the required immutable record, and plain-text rendering avoids introducing HTML injection or unnecessary feature scope.
+
+## Phase 10 Decision 3
+
+- **Chose:** Fetch history only for the open deal detail view and order it oldest-first on the server.
+- **Rejected:** Loading all event history in the deal list or sorting arbitrary event results in React.
+- **Why:** Per-deal loading keeps the list efficient, while backend ordering gives every client the same chronological timeline.

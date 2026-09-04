@@ -39,7 +39,7 @@ A representative create-deal request is: the authenticated browser submits title
 
 Deal access is enforced in the server query: managers can access every non-deleted deal, while Sales Reps can access deals they own or where they are an existing collaborator. The React UI does not implement authorization by itself.
 
-Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that later support immutable history. Server-side search/filter/sort/pagination, reporting dashboard, timeline UI, and past-due alert UI remain later phases.
+Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that later support immutable history. Server-side search/filter/sort/pagination, reporting dashboard, and past-due alert UI remain later phases.
 
 ## Phase 5 - Deal lifecycle
 
@@ -70,3 +70,9 @@ Managers use `POST /api/deals/bulk-reassign` and `POST /api/deals/bulk-advance`.
 Authenticated clients call `GET /api/dashboard`. The route reuses the shared `dealAccess()` predicate for every count, grouping, aggregate, and weekly query. Open count and stage/owner breakdowns use Prisma `count`/`groupBy`; weighted pipeline uses four stage-filtered decimal aggregates and the centralized Phase 5 probabilities; month and eight-week metrics query only authorized Won/Lost records by `closedAt`. The server returns metrics and exactly eight Monday-start UTC weekly buckets, while React renders the result with Recharts without downloading individual deals.
 
 The protected React root route `/` renders this dashboard as the authenticated landing view. Companies and Deals remain available through dashboard navigation, and `/dashboard` remains an explicit alias.
+
+## Phase 10 - Immutable deal history
+
+`GET /api/deals/:id/history` reuses the existing deal access predicate and returns that deal's `DealEvent` rows oldest-first with deterministic timestamp/ID ordering. The response includes safe actor and owner identities, stage fields, backward reasons, and note bodies. There are no event update or delete routes. `POST /api/deals/:id/notes` is the only new history-writing action; it appends a validated plain-text `NOTE_ADDED` event.
+
+Deal creation, normal owner reassignment, lifecycle transitions, reopen, and bulk reassignment write their corresponding events at the existing mutation boundary. State changes and required events use Prisma transactions where both a deal and event change; history is fetched only for the currently viewed deal and rendered read-only in the detail page.

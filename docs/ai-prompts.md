@@ -155,6 +155,20 @@ The backend gained `/api/dashboard` with filtered Prisma counts, groupings, deci
 
 The dashboard implementation extracted the existing deal access predicate into a shared helper so dashboard metrics and deal APIs cannot drift into separate authorization rules. Weighted pipeline remains tied to the existing centralized lifecycle probability configuration rather than introducing another map.
 
+## Phase 10 - Immutable Deal History / Timeline
+
+### Prompt
+
+Implement only Phase 10 in the current Phase 9 Sales CRM. Preserve all existing authentication, access control, CRUD, lifecycle, collaborators, search, bulk actions, CSV export, and dashboard behavior. Reuse the existing DealEvent model. Add an authenticated read-only per-deal history endpoint, ensure deal creation and owner reassignment have immutable events, add minimal validated plain-text note creation if missing, and render a chronological read-only timeline in DealDetailPage. Do not add event edit/delete APIs or implement Phase 11 or later.
+
+### What you got
+
+The backend gained `GET /api/deals/:id/history` and `POST /api/deals/:id/notes`, added missing creation/normal-reassignment event writes, and preserved transactional lifecycle and bulk event behavior. The detail page now fetches only the current deal's history and displays safe actor/owner/stage/reason/note fields without mutation controls.
+
+### What you corrected
+
+The implementation verified the history endpoint with independent manager, owner, collaborator, and unrelated-rep request contexts rather than relying on the earlier shared-auth-state test adapter. The resulting authorization and immutability matrix passed.
+
 ## Phase 7 - Deal Finding
 
 ### Prompt
