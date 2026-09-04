@@ -35,3 +35,7 @@ The initial migration `20260904123000_init_sales_crm` applied successfully. The 
 Implemented the authentication slice end to end: Prisma-backed bcrypt login, HTTP-only JWT cookie sessions, current-user restoration, reusable authentication and role middleware, a manager-only authorization check, Axios credential support, a login form, protected route, role display, and logout. No company, deal, dashboard, or other CRM business feature was added.
 
 Validation included backend syntax/Prisma checks, frontend lint/build, and local HTTP checks for invalid credentials, manager and sales-rep sessions, unauthenticated `/me`, manager-only access, logout, and post-logout access.
+
+## Phase 3 - Companies
+
+Implemented the Companies vertical slice: authenticated server-side CRUD-style company routes, manager owner selection, ownership/collaboration access checks, soft archive/restore, and protected React list/create/detail/edit views. API tests verified manager flow, archive visibility, restore, sales-rep self-ownership on create, and cross-owner `403` protection. No Deal feature was implemented.

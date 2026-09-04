@@ -114,3 +114,15 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** `sameSite=lax` locally and `secure`/`sameSite=none` when `NODE_ENV=production`.
 - **Rejected:** A wildcard credentialed CORS policy or one cookie setting for every deployment.
 - **Why:** Localhost development needs HTTP compatibility, while separately hosted HTTPS frontend/backend deployments need cross-site credential support. CORS remains limited to `CLIENT_URL`.
+
+## Phase 3 Decision 1
+
+- **Chose:** Sales-rep company access is ownership or an existing collaborator-deal relationship, evaluated in the Prisma query.
+- **Rejected:** React-only filtering or trusting a client-provided owner ID.
+- **Why:** README ties rep visibility to ownership/collaboration and requires server-side enforcement.
+
+## Phase 3 Decision 2
+
+- **Chose:** Managers alone archive and restore companies; sales reps create and edit authorized companies.
+- **Rejected:** Adding a separate ownership-transfer feature or expanding archive authority beyond the stated manager role.
+- **Why:** README explicitly grants company archiving to managers and does not require ownership transfer.

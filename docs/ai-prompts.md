@@ -66,3 +66,19 @@ Authentication routes, cookie/JWT configuration, safe-user responses, server-sid
 ### What you corrected
 
 The first frontend check found PowerShell-created JSX files with a non-UTF-8 encoding and a fast-refresh lint violation from exporting a hook beside a component. The Phase 2 frontend files were rewritten as UTF-8 and the auth context/hook were separated; lint and production build then passed.
+
+---
+
+## Phase 3 - Companies
+
+### Prompt
+
+Implement only company list, create, detail, edit, archive, restore, server-side ownership authorization, and corresponding protected React UI; do not implement any Deal or later-phase feature.
+
+### What you got
+
+A focused Companies module, manager-only owner lookup/archive/restore operations, Prisma-backed server authorization, and protected list/create/detail/edit routes.
+
+### What you corrected
+
+Initial frontend validation caught an unused navigation import and a malformed one-time loading-effect comment. Both were corrected before final lint and production build passed.

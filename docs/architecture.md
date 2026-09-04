@@ -24,3 +24,9 @@ Authentication is implemented by Express, not Supabase. The React client uses an
 On browser startup, the auth provider calls `/api/auth/me` to restore the session. Auth middleware reads and verifies the cookie, reloads the user from PostgreSQL, and attaches only the safe user fields to the request. Role middleware then checks the current database role on protected server routes. `/api/auth/manager-check` is a deliberately limited authentication demonstration route; it is not business functionality.
 
 For local development the cookie is `httpOnly`, `sameSite=lax`, and non-secure so it works over localhost HTTP. In production (`NODE_ENV=production`), it is `secure` and `sameSite=none` for the planned separate frontend/backend HTTPS deployment. CORS accepts only `CLIENT_URL` with credentials enabled.
+
+---
+
+## Phase 3 - Companies
+
+The authenticated React client uses Axios to call the Express Companies module. Every Companies endpoint passes through JWT authentication; Express reloads the current user and checks authorization before Prisma queries. Managers can list and act on every company. Sales reps can list, view, and edit companies they own or can reach through an existing collaborator deal relationship; create requests always use the authenticated sales-rep ID rather than a submitted owner ID. Archiving and restoring are manager-only operations, matching the role requirement that grants company archiving to sales managers.
