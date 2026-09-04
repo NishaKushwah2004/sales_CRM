@@ -126,3 +126,17 @@ The existing composite-key collaborator model and owner-or-collaborator deal acc
 ### What you corrected
 
 The implementation kept candidate lookup separate from manager-only owner lookup because deal owners and collaborators have different authorization needs. Server-side checks remain authoritative for target role, duplicate membership, owner exclusion, and manager/owner membership management.
+
+## Phase 7 - Deal Finding
+
+### Prompt
+
+Implement only Phase 7 Deal Finding in the current Phase 6 Sales CRM. Inspect the existing README, schema, deal routes, collaborator access, and Deals page first. Extend `GET /api/deals` with database-side search over deal/company name, company/stage/owner filters, allowlisted sorting, validated pagination and matching count metadata. Preserve manager/owner/collaborator authorization, soft deletion, CRUD, lifecycle, and collaborator behavior. Update the existing Deals page to request only server-returned pages and document the work. Do not implement Phase 8 or later.
+
+### What you got
+
+The list endpoint now builds one Prisma `where` from access control and validated search/filter parameters, uses `orderBy`, `skip`, and `take`, and counts with the same conditions. The existing Deals page now sends query parameters for search, filters, sorting, page, and page size and renders pagination metadata.
+
+### What you corrected
+
+An intermediate patch left a partial JSX merge in `DealsPage.jsx`, which the focused lint check caught immediately. The page was recreated from the reviewed implementation, the accidental patch markers were removed, and lint passed before the remaining validation work continued.

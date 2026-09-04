@@ -52,3 +52,9 @@ Each accepted stage change updates the Deal and appends a `STAGE_CHANGED` DealEv
 Collaborator management is exposed through `GET /api/deals/:id/collaborators`, `GET /api/deals/:id/collaborator-candidates`, `POST /api/deals/:id/collaborators`, and `DELETE /api/deals/:id/collaborators/:userId`. Every endpoint requires the existing HTTP-only-cookie authentication and the existing deal access query. Managers and the deal owner may add or remove collaborators; other collaborators may view the list and update the deal but cannot manage membership.
 
 The existing `DealCollaborator` composite key remains the single source of truth for membership. The server verifies that target users are Sales Reps, rejects the owner and duplicate rows, and returns safe user fields only. Because `dealAccess()` already checks owner or collaborator membership, adding a row immediately grants deal access and removing it immediately removes access for a non-owner. No database schema migration was required.
+
+## Phase 7 - Deal finding
+
+`GET /api/deals` now accepts `search`, `companyId`, `stage`, `ownerId`, `sortBy`, `sortOrder`, `page`, and `pageSize`. Express validates these parameters, combines search and field filters with the existing manager-or-owner-or-collaborator access predicate, and passes the resulting `where`, allowlisted `orderBy`, `skip`, and `take` directly to Prisma. The matching `count` uses the same `where` conditions, so deleted or unauthorized deals cannot affect returned results or totals.
+
+The React Deals page sends each search, filter, sort, and pagination change to the API and renders only the returned page. A representative request is `GET /api/deals?search=acme&stage=PROPOSAL&sortBy=value&sortOrder=desc&page=1&pageSize=10`; the API returns `deals` plus `pagination.page`, `pageSize`, `total`, and `totalPages`. No client-side full-dataset filtering or pagination was added.

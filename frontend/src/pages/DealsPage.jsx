@@ -5,6 +5,7 @@ import { useAuth } from '../auth/useAuth'
 
 const emptyForm = { title: '', value: '', expectedCloseDate: '', companyId: '', ownerId: '' }
 const stages = { NEW: 'New', QUALIFIED: 'Qualified', PROPOSAL: 'Proposal', NEGOTIATION: 'Negotiation', WON: 'Won', LOST: 'Lost' }
+const initialFilters = { search: '', companyId: '', stage: '', ownerId: '', sortBy: 'lastUpdate', sortOrder: 'desc', page: 1, pageSize: 10 }
 
 function errorMessage(error, fallback) {
   return error.response?.data?.error?.message || fallback
@@ -17,35 +18,60 @@ export default function DealsPage() {
   const [companies, setCompanies] = useState([])
   const [owners, setOwners] = useState([])
   const [form, setForm] = useState(emptyForm)
+  const [filters, setFilters] = useState(initialFilters)
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 0 })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function load() {
-    setLoading(true)
-    setError('')
-    try {
-      const [dealResponse, companyResponse, ownerResponse] = await Promise.all([
-        api.get('/deals'),
-        api.get('/companies'),
-        user.role === 'MANAGER' ? api.get('/deals/owners') : Promise.resolve(null),
-      ])
-      setDeals(dealResponse.data.data.deals)
-      setCompanies(companyResponse.data.data.companies)
-      setOwners(ownerResponse?.data.data.owners || [])
-    } catch (requestError) {
-      setError(errorMessage(requestError, 'Unable to load deals.'))
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    async function loadMetadata() {
+      try {
+        const [companyResponse, ownerResponse] = await Promise.all([
+          api.get('/companies'),
+          user.role === 'MANAGER' ? api.get('/deals/owners') : Promise.resolve(null),
+        ])
+        setCompanies(companyResponse.data.data.companies)
+        setOwners(ownerResponse?.data.data.owners || [])
+      } catch (requestError) {
+        setError(errorMessage(requestError, 'Unable to load deal filters.'))
+      }
     }
-  }
+    loadMetadata()
+  }, [user.role])
 
-  // Initial page load synchronizes data from the authenticated API.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    async function loadDeals() {
+      setLoading(true)
+      setError('')
+      try {
+        const params = new URLSearchParams()
+        if (filters.search.trim()) params.set('search', filters.search.trim())
+        if (filters.companyId) params.set('companyId', filters.companyId)
+        if (filters.stage) params.set('stage', filters.stage)
+        if (filters.ownerId) params.set('ownerId', filters.ownerId)
+        params.set('sortBy', filters.sortBy)
+        params.set('sortOrder', filters.sortOrder)
+        params.set('page', String(filters.page))
+        params.set('pageSize', String(filters.pageSize))
+        const response = await api.get(`/deals?${params.toString()}`)
+        setDeals(response.data.data.deals)
+        setPagination(response.data.data.pagination)
+      } catch (requestError) {
+        setError(errorMessage(requestError, 'Unable to load deals.'))
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadDeals()
+  }, [filters.search, filters.companyId, filters.stage, filters.ownerId, filters.sortBy, filters.sortOrder, filters.page, filters.pageSize])
 
   function change(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function updateFilter(field, value) {
+    setFilters((current) => ({ ...current, [field]: value, page: 1 }))
   }
 
   async function create(event) {
@@ -53,21 +79,14 @@ export default function DealsPage() {
     setSaving(true)
     setError('')
     try {
-      const payload = {
-        title: form.title,
-        value: form.value,
-        expectedCloseDate: form.expectedCloseDate,
-        companyId: form.companyId,
-      }
+      const payload = { title: form.title, value: form.value, expectedCloseDate: form.expectedCloseDate, companyId: form.companyId }
       if (user.role === 'MANAGER') payload.ownerId = form.ownerId
       const response = await api.post('/deals', payload)
       setForm(emptyForm)
       navigate(`/deals/${response.data.data.deal.id}`)
     } catch (requestError) {
       setError(errorMessage(requestError, 'Unable to create deal.'))
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
   async function remove(dealId) {
@@ -75,6 +94,7 @@ export default function DealsPage() {
     try {
       await api.delete(`/deals/${dealId}`)
       setDeals((current) => current.filter((deal) => deal.id !== dealId))
+      setPagination((current) => ({ ...current, total: Math.max(0, current.total - 1) }))
     } catch (requestError) {
       setError(errorMessage(requestError, 'Unable to delete deal.'))
     }
@@ -85,29 +105,26 @@ export default function DealsPage() {
       <div className="mx-auto max-w-6xl">
         <Link className="text-sm text-sky-400" to="/">Back to account</Link>
         <h1 className="mt-4 text-3xl font-bold">Deals</h1>
-        <p className="mt-2 text-slate-400">Your accessible deals. Managers can see every deal.</p>
+        <p className="mt-2 text-slate-400">Search and manage your accessible deals. Managers can see every deal.</p>
         {error && <p className="mt-4 rounded bg-red-950 p-3 text-red-200">{error}</p>}
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_380px]">
+        <section className="mt-8 rounded border border-slate-800 bg-slate-900 p-5">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm lg:col-span-2">Search deals or companies<input className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2" value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} placeholder="Search by title or company" /></label>
+            <label className="text-sm">Company<select className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2" value={filters.companyId} onChange={(event) => updateFilter('companyId', event.target.value)}><option value="">All companies</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
+            <label className="text-sm">Stage<select className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2" value={filters.stage} onChange={(event) => updateFilter('stage', event.target.value)}><option value="">All stages</option>{Object.entries(stages).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            {user.role === 'MANAGER' && <label className="text-sm">Owner<select className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2" value={filters.ownerId} onChange={(event) => updateFilter('ownerId', event.target.value)}><option value="">All owners</option>{owners.map((owner) => <option key={owner.id} value={owner.id}>{owner.email}</option>)}</select></label>}
+            <label className="text-sm">Sort by<select className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2" value={filters.sortBy} onChange={(event) => updateFilter('sortBy', event.target.value)}><option value="lastUpdate">Last update</option><option value="value">Value</option><option value="expectedCloseDate">Expected close date</option></select></label>
+            <label className="text-sm">Order<select className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2" value={filters.sortOrder} onChange={(event) => updateFilter('sortOrder', event.target.value)}><option value="desc">Descending</option><option value="asc">Ascending</option></select></label>
+            <label className="text-sm">Page size<select className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2" value={filters.pageSize} onChange={(event) => updateFilter('pageSize', Number(event.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
+          </div>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
           <div>
-            {loading ? <p>Loading deals...</p> : deals.length === 0 ? (
-              <p className="rounded border border-dashed border-slate-700 p-6 text-slate-400">No active deals are available.</p>
-            ) : (
-              <ul className="space-y-3">
-                {deals.map((deal) => (
-                  <li className="rounded border border-slate-800 bg-slate-900 p-4" key={deal.id}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <Link className="font-semibold text-sky-300" to={`/deals/${deal.id}`}>{deal.title}</Link>
-                        <p className="mt-1 text-sm text-slate-300">{deal.company.name} · {stages[deal.stage]}</p>
-                        <p className="mt-1 text-sm text-slate-400">₹ {deal.value} · Close {deal.expectedCloseDate.slice(0, 10)} · {deal.owner.email}</p>
-                      </div>
-                      <button className="rounded border border-red-700 px-3 py-1 text-sm text-red-200" onClick={() => remove(deal.id)}>Delete</button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="mb-3 flex items-center justify-between text-sm text-slate-400"><span>{pagination.total} matching deal{pagination.total === 1 ? '' : 's'}</span><span>Page {pagination.page} of {Math.max(1, pagination.totalPages)}</span></div>
+            {loading ? <p>Loading deals...</p> : deals.length === 0 ? <p className="rounded border border-dashed border-slate-700 p-6 text-slate-400">No deals match the current search.</p> : <ul className="space-y-3">{deals.map((deal) => <li className="rounded border border-slate-800 bg-slate-900 p-4" key={deal.id}><div className="flex items-start justify-between gap-4"><div><Link className="font-semibold text-sky-300" to={`/deals/${deal.id}`}>{deal.title}</Link><p className="mt-1 text-sm text-slate-300">{deal.company.name} · {stages[deal.stage]}</p><p className="mt-1 text-sm text-slate-400">₹ {deal.value} · Close {deal.expectedCloseDate.slice(0, 10)} · {deal.owner.email}</p></div><button className="rounded border border-red-700 px-3 py-1 text-sm text-red-200" onClick={() => remove(deal.id)}>Delete</button></div></li>)}</ul>}
+            <div className="mt-5 flex items-center justify-between"><button className="rounded border border-slate-700 px-4 py-2 text-sm disabled:opacity-40" disabled={loading || pagination.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}>Previous</button><button className="rounded border border-slate-700 px-4 py-2 text-sm disabled:opacity-40" disabled={loading || pagination.page >= pagination.totalPages} onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}>Next</button></div>
           </div>
 
           <form className="rounded border border-slate-800 bg-slate-900 p-5" onSubmit={create}>

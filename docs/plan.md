@@ -71,3 +71,17 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 **Testing:** frontend lint/build, backend syntax checks, Prisma validation/generation, and request-level API authorization tests were run. The request harness covered manager, owner, collaborator, unrelated rep, duplicate, manager-target, owner-target, removal, access, update, and owner-reassignment cases.
 
 **Deviation/cut:** no schema or migration change was needed because `DealCollaborator` already has the required composite primary key and relationships. Search, filtering, bulk actions, reporting, timeline UI, and alerts remain deferred to later phases.
+
+## Phase 7 - Deal Finding
+
+**Intended work:** add server-side deal title/company search, company/stage/owner filters, allowlisted sorting, bounded database pagination, matching totals, and controls in the existing Deals page.
+
+**Why server-side:** authorization, filtering, sorting, and pagination must occur in the Prisma query so a Sales Rep cannot discover another user's deal by manipulating browser state and the client never loads the full dataset.
+
+**Actual work:** extended `GET /api/deals` with one validated Prisma query path and matching count, added deterministic tie-breaking by ID, and updated `DealsPage.jsx` to request and render only the selected page while preserving create and soft-delete behavior.
+
+**Testing:** backend syntax, Prisma validation/generation, frontend lint/build, query-shape inspection, and request-level API validation/access tests were run. PostgreSQL/Docker availability remains the infrastructure limitation for production database integration tests.
+
+**Estimated vs actual:** the phase was implemented as a focused backend/query and page update during the current session; no separate estimate was recorded in the existing project notes.
+
+**Deviation/cut:** no bulk actions, CSV export, dashboard, timeline, alerts, schema changes, or other Phase 8+ functionality was added.

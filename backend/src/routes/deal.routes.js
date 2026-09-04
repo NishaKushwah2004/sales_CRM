@@ -7,6 +7,10 @@ const { forwardTransitions, backwardTransitions } = require('../config/dealLifec
 const router = express.Router()
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const decimal = /^\d{1,12}(\.\d{1,2})?$/
+const positiveInteger = /^[1-9]\d*$/
+const sortFields = { value: 'value', expectedCloseDate: 'expectedCloseDate', lastUpdate: 'updatedAt' }
+const defaultPageSize = 10
+const maxPageSize = 100
 const include = {
   company: { select: { id: true, name: true, archivedAt: true } },
   owner: { select: { id: true, email: true, role: true } },
@@ -100,12 +104,45 @@ router.get('/owners', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    const deals = await prisma.deal.findMany({
-      where: { deletedAt: null, ...dealAccess(req.user) },
-      include,
-      orderBy: { updatedAt: 'desc' },
-    })
-    return res.json({ success: true, data: { deals } })
+    const { search, companyId, stage, ownerId, sortBy, sortOrder } = req.query
+    const page = req.query.page === undefined ? 1 : Number(req.query.page)
+    const pageSize = req.query.pageSize === undefined ? defaultPageSize : Number(req.query.pageSize)
+    if ((req.query.page !== undefined && (!positiveInteger.test(req.query.page) || !Number.isSafeInteger(page))) || (req.query.pageSize !== undefined && (!positiveInteger.test(req.query.pageSize) || !Number.isSafeInteger(pageSize) || pageSize > maxPageSize))) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_PAGINATION', message: `Page must be a positive integer and pageSize must be between 1 and ${maxPageSize}.` } })
+    }
+    if (sortBy !== undefined && !Object.prototype.hasOwnProperty.call(sortFields, sortBy)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_SORT_FIELD', message: 'sortBy must be value, expectedCloseDate, or lastUpdate.' } })
+    }
+    if (sortOrder !== undefined && sortOrder !== 'asc' && sortOrder !== 'desc') {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_SORT_ORDER', message: 'sortOrder must be asc or desc.' } })
+    }
+    if (companyId !== undefined && !validId(companyId)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_COMPANY', message: 'companyId is invalid.' } })
+    }
+    if (ownerId !== undefined && !validId(ownerId)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_OWNER', message: 'ownerId is invalid.' } })
+    }
+    if (stage !== undefined && !Object.values(DealStage).includes(stage)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_STAGE', message: 'stage is invalid.' } })
+    }
+
+    const conditions = []
+    if (typeof search === 'string' && search.trim()) {
+      conditions.push({ OR: [
+        { title: { contains: search.trim(), mode: 'insensitive' } },
+        { company: { name: { contains: search.trim(), mode: 'insensitive' } } },
+      ] })
+    }
+    if (companyId) conditions.push({ companyId })
+    if (stage) conditions.push({ stage })
+    if (ownerId) conditions.push({ ownerId })
+    const where = { deletedAt: null, ...dealAccess(req.user), ...(conditions.length ? { AND: conditions } : {}) }
+    const orderBy = [{ [sortFields[sortBy || 'lastUpdate']]: sortOrder || 'desc' }, { id: 'asc' }]
+    const [deals, total] = await prisma.$transaction([
+      prisma.deal.findMany({ where, include, orderBy, skip: (page - 1) * pageSize, take: pageSize }),
+      prisma.deal.count({ where }),
+    ])
+    return res.json({ success: true, data: { deals, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } } })
   } catch (error) {
     return next(error)
   }

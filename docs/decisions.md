@@ -198,3 +198,15 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Rely on the existing composite primary key for uniqueness and translate duplicate errors into a clear API response.
 - **Rejected:** A pre-check alone or a second uniqueness mechanism.
 - **Why:** The database constraint remains authoritative under concurrent requests, while the route avoids leaking raw Prisma errors.
+
+## Phase 7 Decision 1
+
+- **Chose:** Perform search, filtering, sorting, authorization, pagination, and counting in Prisma/database queries.
+- **Rejected:** Loading every accessible deal into React and filtering or paginating in JavaScript.
+- **Why:** Server-side querying preserves the existing access boundary, scales with the dataset, and prevents manipulated client parameters from revealing unauthorized records.
+
+## Phase 7 Decision 2
+
+- **Chose:** Use an explicit sort allowlist with `lastUpdate` as the default and `id ASC` as a deterministic tie-breaker.
+- **Rejected:** Passing arbitrary query-string field names into Prisma `orderBy`.
+- **Why:** The API exposes only the three assignment-approved sort concepts and pagination remains stable when records share the same value or timestamp.
