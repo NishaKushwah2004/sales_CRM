@@ -126,3 +126,27 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Managers alone archive and restore companies; sales reps create and edit authorized companies.
 - **Rejected:** Adding a separate ownership-transfer feature or expanding archive authority beyond the stated manager role.
 - **Why:** README explicitly grants company archiving to managers and does not require ownership transfer.
+
+## Phase 4 Decision 1
+
+- **Chose:** Keep deal monetary values as Prisma/PostgreSQL `Decimal(14,2)` and send the value as text from the React form.
+- **Rejected:** Converting deal values to JavaScript floating-point numbers before persistence.
+- **Why:** The assignment explicitly requires exact decimal deal values, so the UI should not introduce binary floating-point rounding.
+
+## Phase 4 Decision 2
+
+- **Chose:** Enforce Sales Rep deal access in Prisma using ownership or an existing collaborator relationship.
+- **Rejected:** Loading all deals and filtering them in React.
+- **Why:** The assignment requires server-side access enforcement, and the same access predicate can be reused by list/detail/update/delete operations.
+
+## Phase 4 Decision 3
+
+- **Chose:** Use the existing `deletedAt` field for deal deletion rather than physically deleting the row.
+- **Rejected:** Hard deletion of a deal and its related records.
+- **Why:** Later immutable history and collaborator/alert relationships must not be destroyed when a deal is deleted.
+
+## Phase 4 Decision 4
+
+- **Chose:** Allow only managers to change `ownerId` through the deal update API.
+- **Rejected:** Letting Sales Reps submit arbitrary owner IDs.
+- **Why:** The README gives managers the responsibility to reassign deals and server-side authorization must prevent a rep from impersonating another owner.

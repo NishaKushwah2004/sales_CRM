@@ -82,3 +82,19 @@ A focused Companies module, manager-only owner lookup/archive/restore operations
 ### What you corrected
 
 Initial frontend validation caught an unused navigation import and a malformed one-time loading-effect comment. Both were corrected before final lint and production build passed.
+
+---
+
+## Phase 4 — Deals completion
+
+### Prompt
+
+Complete the existing Phase 4 Deals implementation from the current project state. Implement only the required deal CRUD, server-side ownership/collaborator access, exact decimal handling, active-company checks, manager owner selection/reassignment, soft deletion, React deal list/create/detail/edit/delete UI, company-detail deal display, and relevant documentation. Do not implement lifecycle, collaborator management, search/filter/sort/pagination, bulk actions, dashboard, history, or alerts.
+
+### What you got
+
+The existing backend deal routes already covered basic CRUD and authorization, while the frontend deal pages were placeholders. The completion work filled the missing deal UI, integrated accessible deals into company detail, tightened target-company authorization, and added manager-only owner reassignment.
+
+### What you corrected
+
+The interrupted Codex implementation had stopped after creating the backend route while the React deal pages remained placeholders. The remaining Phase 4 work was completed manually from the current source state without adding later-phase functionality.

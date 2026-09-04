@@ -39,3 +39,15 @@ Validation included backend syntax/Prisma checks, frontend lint/build, and local
 ## Phase 3 - Companies
 
 Implemented the Companies vertical slice: authenticated server-side CRUD-style company routes, manager owner selection, ownership/collaboration access checks, soft archive/restore, and protected React list/create/detail/edit views. API tests verified manager flow, archive visibility, restore, sales-rep self-ownership on create, and cross-owner `403` protection. No Deal feature was implemented.
+
+## Phase 4 — Deals
+
+**Goal:** implement the required deal CRUD and company-to-deal view without starting lifecycle or later reporting features.
+
+**Order:** backend authorization and CRUD first, then React deal list/create/detail/edit/delete screens, then company-detail deal display, then validation/build checks. This keeps server-side access rules authoritative before adding UI actions.
+
+**Estimated:** 90 minutes.
+
+**Actual:** extended across the interrupted Codex session and manual completion after the Codex usage limit was reached.
+
+**Cut from this phase:** lifecycle transitions, collaborator management, search/filter/sort/pagination, bulk actions, CSV export, dashboard, immutable timeline behavior, and past-due alerts. Those remain deliberately separated into later phases.

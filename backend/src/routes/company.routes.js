@@ -1,4 +1,4 @@
-﻿const express = require('express')
+const express = require('express')
 const { UserRole } = require('../../../node_modules/@prisma/client')
 const prisma = require('../lib/prisma')
 const { requireAuth } = require('../middleware/auth')
@@ -7,12 +7,13 @@ const { allowRoles } = require('../middleware/authorize')
 const router = express.Router()
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const safeCompany = (company) => ({ ...company, owner: company.owner && { id: company.owner.id, email: company.owner.email, role: company.owner.role } })
+const dealPreview = { select: { id: true, title: true, value: true, expectedCloseDate: true, stage: true, owner: { select: { id: true, email: true, role: true } } } }
 const companyInclude = { owner: { select: { id: true, email: true, role: true } } }
 
 function validId(value) { return typeof value === 'string' && uuidPattern.test(value) }
 function companyAccessWhere(user) { return user.role === UserRole.MANAGER ? {} : { OR: [{ ownerId: user.id }, { deals: { some: { collaborators: { some: { userId: user.id } } } } }] } }
 function fields(body) { const { name, industry, website } = body || {}; if ([name, industry, website].some((value) => typeof value !== 'string' || !value.trim())) return null; return { name: name.trim(), industry: industry.trim(), website: website.trim() } }
-async function findAccessible(id, user) { if (!validId(id)) return { error: 'INVALID_ID' }; const company = await prisma.company.findFirst({ where: { id, ...companyAccessWhere(user) }, include: companyInclude }); return company || { error: 'NOT_FOUND_OR_FORBIDDEN' } }
+async function findAccessible(id, user) { if (!validId(id)) return { error: 'INVALID_ID' }; const company = await prisma.company.findFirst({ where: { id, ...companyAccessWhere(user) }, include: { ...companyInclude, deals: { where: { deletedAt: null, ...(user.role === UserRole.MANAGER ? {} : { OR: [{ ownerId: user.id }, { collaborators: { some: { userId: user.id } } }] }) }, orderBy: { updatedAt: 'desc' }, ...dealPreview } } }); return company || { error: 'NOT_FOUND_OR_FORBIDDEN' } }
 
 router.use(requireAuth)
 router.get('/owners', allowRoles(UserRole.MANAGER), async (req, res, next) => { try { const owners = await prisma.user.findMany({ where: { role: UserRole.SALES_REP }, select: { id: true, email: true, role: true }, orderBy: { email: 'asc' } }); res.json({ success: true, data: { owners } }) } catch (error) { next(error) } })

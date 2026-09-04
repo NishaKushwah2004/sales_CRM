@@ -30,3 +30,13 @@ For local development the cookie is `httpOnly`, `sameSite=lax`, and non-secure s
 ## Phase 3 - Companies
 
 The authenticated React client uses Axios to call the Express Companies module. Every Companies endpoint passes through JWT authentication; Express reloads the current user and checks authorization before Prisma queries. Managers can list and act on every company. Sales reps can list, view, and edit companies they own or can reach through an existing collaborator deal relationship; create requests always use the authenticated sales-rep ID rather than a submitted owner ID. Archiving and restoring are manager-only operations, matching the role requirement that grants company archiving to sales managers.
+
+## Phase 4 — Deals
+
+The Deals feature is exposed through the Express API under `/api/deals` and consumed by the React/Vite application through the shared Axios client. Prisma remains the only application data-access layer for deals.
+
+A representative create-deal request is: the authenticated browser submits title, exact decimal value, expected close date, company ID, and (for managers) owner ID through Axios; Express verifies the HTTP-only JWT and reloads the current user; the deal route verifies that the company is accessible and active, verifies that the owner is a Sales Rep, forces new deals to `NEW`, and persists the record with Prisma/PostgreSQL. The API returns safe company and owner fields for the UI.
+
+Deal access is enforced in the server query: managers can access every non-deleted deal, while Sales Reps can access deals they own or where they are an existing collaborator. The React UI does not implement authorization by itself.
+
+Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that later support immutable history. Lifecycle transitions, collaborator management, server-side search/filter/sort/pagination, bulk actions, reporting dashboard, timeline UI/event writing, and past-due alert UI remain later phases.
