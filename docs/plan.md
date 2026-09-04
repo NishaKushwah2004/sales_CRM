@@ -18,3 +18,14 @@ This order establishes a reproducible database and application boundary before i
 ### Validation note
 
 Prisma schema validation and client generation passed with Prisma 6.19.3. Docker Compose configuration passed, but Docker Desktop was unavailable. A PostgreSQL service already listening on port 5432 rejected the configured local Docker credentials, so end-to-end local Docker database connectivity remains to be verified after Docker Desktop is started and the port conflict is resolved.
+
+## Phase 1 — Database and Prisma model
+
+Designed the complete persistence model before adding any API or UI behavior. The schema now covers users, company archiving, deals, collaborations, immutable timeline events, and date-scoped alert dismissals. The schema was formatted, validated, and used to generate an offline initial migration and Prisma Client.
+
+The initial migration was applied successfully, Prisma Client was generated, and the seed ran successfully. Read-only verification confirmed 4 users (1 manager and 3 sales reps), 4 companies, 5 deals, 2 collaborator relationships, and 9 timeline events.
+
+
+### Verified database result
+
+The initial migration `20260904123000_init_sales_crm` applied successfully. The seed executed successfully and a read-only Prisma inspection verified 4 users (1 manager, 3 sales reps), 4 companies, 5 deals, 2 collaborator records, and 9 timeline events. PostgreSQL accepted `pg_isready` on the Sales CRM service.

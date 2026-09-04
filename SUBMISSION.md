@@ -16,8 +16,8 @@ request can take up to a minute.>
 
 | Role | Email | Password |
 |------|-------|----------|
-| <role 1> | | |
-| <role 2> | | |
+| Sales Manager | manager@demo.salescrm.test | DemoPassword123! |
+| Sales Rep | ava@demo.salescrm.test | DemoPassword123! |
 
 ## Stack
 
@@ -50,3 +50,4 @@ Mark each honestly. Partial is fine — say what is partial.
 ## What would you do next, with another 12 hours?
 
 ## What are you least happy with in this codebase, and why?
+

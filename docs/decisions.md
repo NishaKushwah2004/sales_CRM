@@ -60,3 +60,39 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Prisma 6.19.3 and Prisma Client 6.19.3 in a root workspace package that owns the root-level Prisma schema.
 - **Rejected:** The latest Prisma 7 release for this project.
 - **Why:** The local runtime is Node 20.19.5, while the attempted latest Prisma tooling requires Node 22 or later. The matching Prisma 6 packages validate and generate successfully on the available runtime.
+
+## Phase 1 Decision 1
+
+- **Chose:** `Decimal(14,2)` / PostgreSQL `DECIMAL(14,2)` for deal value.
+- **Rejected:** JavaScript or PostgreSQL floating-point values.
+- **Why:** Pipeline and weighted-reporting values require exact decimal arithmetic; binary floating point would introduce avoidable rounding errors.
+
+## Phase 1 Decision 2
+
+- **Chose:** Prisma enums for user roles and deal stages.
+- **Rejected:** Unconstrained strings or a mutable database stage table.
+- **Why:** The assignment has a fixed, small vocabulary for both roles and lifecycle states. Enums make invalid stored states impossible without creating unnecessary stage-management functionality.
+
+## Phase 1 Decision 3
+
+- **Chose:** Fixed stage probabilities in application constants, not a per-deal database field.
+- **Rejected:** Arbitrary per-deal probabilities or inventing exact percentages in the schema.
+- **Why:** README requires fixed probabilities but gives no values. Constants make the eventual chosen values explicit and centrally controlled while preventing per-deal overrides; the actual percentages will be selected and documented when lifecycle/reporting logic is implemented.
+
+## Phase 1 Decision 4
+
+- **Chose:** One append-only `DealEvent` timeline with typed event rows for creation, stage changes, reassignments, and notes.
+- **Rejected:** Mutable notes plus separate history tables that require cross-table ordering.
+- **Why:** A single ordered event stream directly supports the required immutable timeline and retains the relevant old/new values for lifecycle and reassignment events.
+
+## Phase 1 Decision 5
+
+- **Chose:** `archivedAt` for company archiving and `deletedAt` for future deal deletion, with restrictive foreign keys.
+- **Rejected:** Cascading hard deletes.
+- **Why:** Archived companies must retain their deals, and immutable deal history must never disappear because a parent is deleted.
+
+## Phase 1 Decision 6
+
+- **Chose:** Store alert dismissals against a snapshot of the deal's expected close date.
+- **Rejected:** A permanent per-deal dismissed flag.
+- **Why:** When the close date changes, no dismissal row matches the new date, so a newly overdue deal naturally becomes alertable again without notification infrastructure.

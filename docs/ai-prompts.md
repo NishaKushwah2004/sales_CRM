@@ -33,3 +33,20 @@ The initial patch operation could not access the workspace after Git initializat
 ### Validation correction
 
 The first Prisma attempt used the latest release, which was incompatible with the local Node 20 runtime and did not provide a usable local CLI. Prisma and Prisma Client were then pinned together to version 6.19.3, after which schema validation and client generation succeeded. Docker Compose configuration validated, but Docker Desktop was not running; database connectivity therefore remains a manual verification item.
+
+---
+
+## Phase 1 — Database and Prisma only
+
+### Prompt
+
+Implement the complete Prisma/PostgreSQL data model for the assignment: users and roles, companies and archive state, deals and lifecycle state, collaborators, immutable history, reassignment data, notes, alert dismissals, indexes, seed strategy, migration, and documentation—without API, authentication, frontend, or business-feature implementation.
+
+### What you got
+
+A Prisma schema with six models, enums, restrictive foreign keys, exact decimal deal values, an append-only timeline model, a date-snapshot dismissal model, and an idempotent seed script using bcrypt.
+
+### What you corrected
+
+The migration was first generated offline while the local container was failing. Once PostgreSQL became reachable on port 5433, the same migration applied successfully, the bcrypt-based seed completed, and read-only Prisma checks verified the resulting rows and relationships.
+

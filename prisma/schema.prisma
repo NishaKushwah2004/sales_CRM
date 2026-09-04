@@ -6,3 +6,132 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum UserRole {
+  MANAGER
+  SALES_REP
+}
+
+enum DealStage {
+  NEW
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum DealEventType {
+  DEAL_CREATED
+  STAGE_CHANGED
+  OWNER_REASSIGNED
+  NOTE_ADDED
+}
+
+model User {
+  id                  String               @id @default(uuid()) @db.Uuid
+  email               String               @unique @db.VarChar(320)
+  passwordHash        String               @db.VarChar(255)
+  role                UserRole
+  createdAt           DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
+  companiesOwned      Company[]            @relation("CompanyOwner")
+  dealsOwned          Deal[]               @relation("DealOwner")
+  collaborations      DealCollaborator[]
+  eventsActed         DealEvent[]          @relation("DealEventActor")
+  previousOwnerEvents DealEvent[]          @relation("DealEventPreviousOwner")
+  newOwnerEvents      DealEvent[]          @relation("DealEventNewOwner")
+  alertDismissals     DealAlertDismissal[] @relation("AlertDismissedBy")
+
+  @@index([role])
+}
+
+model Company {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String    @db.VarChar(255)
+  industry   String    @db.VarChar(120)
+  website    String    @db.VarChar(2048)
+  ownerId    String    @db.Uuid
+  archivedAt DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(6)
+  owner      User      @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  deals      Deal[]
+
+  @@index([ownerId, archivedAt])
+  @@index([archivedAt, name])
+  @@index([name])
+}
+
+model Deal {
+  id                String               @id @default(uuid()) @db.Uuid
+  companyId         String               @db.Uuid
+  ownerId           String               @db.Uuid
+  title             String               @db.VarChar(255)
+  value             Decimal              @db.Decimal(14, 2)
+  expectedCloseDate DateTime             @db.Date
+  stage             DealStage            @default(NEW)
+  closedAt          DateTime?            @db.Timestamptz(6)
+  stageBeforeClose  DealStage?
+  deletedAt         DateTime?            @db.Timestamptz(6)
+  createdAt         DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @db.Timestamptz(6)
+  company           Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  owner             User                 @relation("DealOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  collaborators     DealCollaborator[]
+  events            DealEvent[]
+  alertDismissals   DealAlertDismissal[]
+
+  @@index([companyId, stage])
+  @@index([ownerId, stage])
+  @@index([ownerId, updatedAt])
+  @@index([stage, expectedCloseDate])
+  @@index([expectedCloseDate])
+  @@index([title])
+}
+
+model DealCollaborator {
+  dealId    String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([dealId, userId])
+  @@index([userId, dealId])
+}
+
+model DealEvent {
+  id              String        @id @default(uuid()) @db.Uuid
+  dealId          String        @db.Uuid
+  actorId         String        @db.Uuid
+  type            DealEventType
+  oldStage        DealStage?
+  newStage        DealStage?
+  backwardReason  String?       @db.Text
+  previousOwnerId String?       @db.Uuid
+  newOwnerId      String?       @db.Uuid
+  noteBody        String?       @db.Text
+  occurredAt      DateTime      @default(now()) @db.Timestamptz(6)
+  deal            Deal          @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  actor           User          @relation("DealEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+  previousOwner   User?         @relation("DealEventPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: Restrict)
+  newOwner        User?         @relation("DealEventNewOwner", fields: [newOwnerId], references: [id], onDelete: Restrict)
+
+  @@index([dealId, occurredAt])
+  @@index([actorId, occurredAt])
+  @@index([type, occurredAt])
+}
+
+model DealAlertDismissal {
+  id                String   @id @default(uuid()) @db.Uuid
+  dealId            String   @db.Uuid
+  dismissedById     String   @db.Uuid
+  expectedCloseDate DateTime @db.Date
+  dismissedAt       DateTime @default(now()) @db.Timestamptz(6)
+  deal              Deal     @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  dismissedBy       User     @relation("AlertDismissedBy", fields: [dismissedById], references: [id], onDelete: Restrict)
+
+  @@unique([dealId, dismissedById, expectedCloseDate])
+  @@index([dismissedById, expectedCloseDate])
+}
