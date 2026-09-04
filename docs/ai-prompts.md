@@ -141,6 +141,20 @@ The backend gained independent per-deal bulk endpoints, shared lifecycle persist
 
 The first request harness used a shared mutable in-memory auth adapter and produced false role-isolation results. Those results were discarded rather than changing authorization code. The lifecycle helper was then tightened to capture old stage and owner values before updates so event/result data remains stable under test doubles and real Prisma behavior.
 
+## Phase 9 - Sales CRM Dashboard
+
+### Prompt
+
+Implement only Phase 9 in the current Phase 8 Sales CRM. Preserve all existing authentication, authorization, deal CRUD, lifecycle, collaborators, search, pagination, bulk actions, and CSV export. Add an authenticated server-side dashboard endpoint using the existing access predicate and centralized stage probabilities, with open metrics, weighted pipeline, current-month Won/Lost counts, open stage/owner breakdowns, and exactly eight Monday-start weekly Won buckets. Add a protected React/Recharts dashboard route and navigation. Do not implement Phase 10 or later.
+
+### What you got
+
+The backend gained `/api/dashboard` with filtered Prisma counts, groupings, decimal stage aggregates, and date-bounded weekly queries. The frontend gained metric cards, stage/owner charts, an eight-week wins chart, loading/error/empty handling, and an authenticated dashboard route.
+
+### What you corrected
+
+The dashboard implementation extracted the existing deal access predicate into a shared helper so dashboard metrics and deal APIs cannot drift into separate authorization rules. Weighted pipeline remains tied to the existing centralized lifecycle probability configuration rather than introducing another map.
+
 ## Phase 7 - Deal Finding
 
 ### Prompt

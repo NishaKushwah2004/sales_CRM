@@ -4,6 +4,7 @@ const prisma = require('../lib/prisma')
 const { requireAuth } = require('../middleware/auth')
 const { forwardTransitions, backwardTransitions, stageProbabilities } = require('../config/dealLifecycle')
 const { nextForwardStage, persistStageTransition } = require('../lib/dealLifecycle')
+const { dealAccess } = require('../lib/dealAccess')
 
 const router = express.Router()
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -15,12 +16,6 @@ const maxPageSize = 100
 const include = {
   company: { select: { id: true, name: true, archivedAt: true } },
   owner: { select: { id: true, email: true, role: true } },
-}
-
-function dealAccess(user) {
-  return user.role === UserRole.MANAGER
-    ? {}
-    : { OR: [{ ownerId: user.id }, { collaborators: { some: { userId: user.id } } }] }
 }
 
 function validId(value) {

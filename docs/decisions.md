@@ -222,3 +222,15 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Generate CSV on the server from a separate unpaginated authorized open-deal query.
 - **Rejected:** Building CSV in React from the visible page or stitching paginated API responses in the browser.
 - **Why:** The export must include the complete authorized set, preserve access control, and calculate weighted monetary values consistently with backend configuration.
+
+## Phase 9 Decision 1
+
+- **Chose:** Aggregate dashboard data on the server with the shared access predicate, using Prisma counts/grouping and stage-filtered decimal aggregates.
+- **Rejected:** Downloading all deals into React and calculating metrics or authorization in the browser.
+- **Why:** Dashboard totals must not leak unauthorized deals, and the server can return only the small aggregate payload required by the charts.
+
+## Phase 9 Decision 2
+
+- **Chose:** Use Recharts for stage, owner, and weekly Won visualizations with Monday-start UTC buckets.
+- **Rejected:** Adding another chart dependency or letting the browser derive week boundaries.
+- **Why:** Recharts is already installed, and a single documented server-side week boundary keeps date-sensitive results consistent.

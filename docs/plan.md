@@ -97,3 +97,15 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 **Estimated vs actual:** implemented as a focused extension during the current session; no separate estimate was recorded in the existing project notes.
 
 **Deviation/cut:** no dashboard, analytics, timeline UI, alerts, notifications, schema migration, or other Phase 9+ feature was added.
+
+## Phase 9 - Sales CRM Dashboard
+
+**Planned work:** add an authenticated dashboard endpoint for open-deal metrics, weighted pipeline, current-month Won/Lost counts, open stage/owner breakdowns, and eight Monday-start weekly Won buckets, then render them in the existing React application.
+
+**Actual work:** extracted the shared deal access predicate, added `/api/dashboard` with database counts/grouping and filtered date queries, reused centralized stage probabilities, and added a protected Recharts dashboard route and authenticated navigation link.
+
+**Testing:** backend syntax, Prisma validation/generation, frontend lint/build, diagnostics, and request-level dashboard aggregation/access tests were run. PostgreSQL/Docker availability remains the limitation for database-backed integration testing.
+
+**Estimated vs actual:** implemented as a focused dashboard endpoint and page during the current session; no separate estimate was recorded in the existing project notes.
+
+**Deviation/cut:** no timeline UI, alerts, notifications, real-time updates, CSV/bulk changes, schema migration, or Phase 10+ functionality was added.
