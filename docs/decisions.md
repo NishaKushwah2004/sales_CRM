@@ -1,8 +1,8 @@
 # Decisions
 
-Log the decisions that actually shaped this codebase — the ones where a real alternative existed and
+Log the decisions that actually shaped this codebase â€” the ones where a real alternative existed and
 you picked one. At least five entries. For each: what you chose, what you rejected, and why. At least
-one entry must be a decision you later reversed — say what changed your mind. It can be any entry
+one entry must be a decision you later reversed â€” say what changed your mind. It can be any entry
 below, not necessarily the last one; add a **Later reversed:** line to whichever one it is.
 
 ## Decision 1
@@ -96,3 +96,21 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Store alert dismissals against a snapshot of the deal's expected close date.
 - **Rejected:** A permanent per-deal dismissed flag.
 - **Why:** When the close date changes, no dismissal row matches the new date, so a newly overdue deal naturally becomes alertable again without notification infrastructure.
+
+## Phase 2 Decision 1
+
+- **Chose:** JWT in an HTTP-only cookie with only the user ID in its payload.
+- **Rejected:** Returning tokens to JavaScript or storing them in localStorage/sessionStorage.
+- **Why:** An HTTP-only cookie prevents normal browser JavaScript from reading the token, and the minimal payload avoids stale role or sensitive data in the token.
+
+## Phase 2 Decision 2
+
+- **Chose:** Reload the user from PostgreSQL in authentication middleware before role checks.
+- **Rejected:** Trusting a role value supplied by the frontend or carried in the JWT.
+- **Why:** Server-side authorization must use the current database role, so a role change takes effect without waiting for an old token to expire.
+
+## Phase 2 Decision 3
+
+- **Chose:** `sameSite=lax` locally and `secure`/`sameSite=none` when `NODE_ENV=production`.
+- **Rejected:** A wildcard credentialed CORS policy or one cookie setting for every deployment.
+- **Why:** Localhost development needs HTTP compatibility, while separately hosted HTTPS frontend/backend deployments need cross-site credential support. CORS remains limited to `CLIENT_URL`.

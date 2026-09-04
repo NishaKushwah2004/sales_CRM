@@ -36,11 +36,11 @@ The first Prisma attempt used the latest release, which was incompatible with th
 
 ---
 
-## Phase 1 — Database and Prisma only
+## Phase 1 â€” Database and Prisma only
 
 ### Prompt
 
-Implement the complete Prisma/PostgreSQL data model for the assignment: users and roles, companies and archive state, deals and lifecycle state, collaborators, immutable history, reassignment data, notes, alert dismissals, indexes, seed strategy, migration, and documentation—without API, authentication, frontend, or business-feature implementation.
+Implement the complete Prisma/PostgreSQL data model for the assignment: users and roles, companies and archive state, deals and lifecycle state, collaborators, immutable history, reassignment data, notes, alert dismissals, indexes, seed strategy, migration, and documentationâ€”without API, authentication, frontend, or business-feature implementation.
 
 ### What you got
 
@@ -50,3 +50,19 @@ A Prisma schema with six models, enums, restrictive foreign keys, exact decimal 
 
 The migration was first generated offline while the local container was failing. Once PostgreSQL became reachable on port 5433, the same migration applied successfully, the bcrypt-based seed completed, and read-only Prisma checks verified the resulting rows and relationships.
 
+
+---
+
+## Phase 2 â€” Authentication and roles
+
+### Prompt
+
+Implement only Express-backed authentication and role authorization: bcrypt login against existing Prisma users, HTTP-only JWT cookies, current-user restoration, reusable middleware, a manager-only test route, Axios credential handling, login/protected-route/logout UI, focused validation, and relevant documentation. Do not implement CRM business features.
+
+### What you got
+
+Authentication routes, cookie/JWT configuration, safe-user responses, server-side current-role authorization, a login-only React flow, and role-aware authenticated UI.
+
+### What you corrected
+
+The first frontend check found PowerShell-created JSX files with a non-UTF-8 encoding and a fast-refresh lint violation from exporting a hook beside a component. The Phase 2 frontend files were rewritten as UTF-8 and the auth context/hook were separated; lint and production build then passed.

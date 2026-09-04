@@ -1,18 +1,7 @@
-function App() {
-  return (
-    <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
-      <section className="mx-auto max-w-2xl rounded-xl border border-slate-800 bg-slate-900 p-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-400">
-          Foundation
-        </p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight">Sales CRM</h1>
-        <p className="mt-4 text-slate-300">
-          The application foundation is ready. CRM features will be introduced in the
-          following phases.
-        </p>
-      </section>
-    </main>
-  )
-}
-
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from './auth/AuthContext'
+import ProtectedRoute from './auth/ProtectedRoute'
+import LoginPage from './pages/LoginPage'
+import AuthHomePage from './pages/AuthHomePage'
+function App() { return <AuthProvider><Routes><Route path="/login" element={<LoginPage />} /><Route element={<ProtectedRoute />}><Route path="/" element={<AuthHomePage />} /></Route><Route path="*" element={<Navigate to="/" replace />} /></Routes></AuthProvider> }
 export default App
