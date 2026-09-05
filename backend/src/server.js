@@ -18,6 +18,11 @@ app.use('/api/deals', dealRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use((req, res) => res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Route not found.' } }))
 app.use((error, req, res, next) => { console.error(error); res.status(500).json({ success: false, error: { code: 'INTERNAL_SERVER_ERROR', message: 'An unexpected error occurred.' } }) })
-const PORT = process.env.PORT || 5000
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+const PORT = process.env.PORT || 5000;
 
+console.log("DEBUG PORT:", JSON.stringify(process.env.PORT));
+console.log("DEBUG JWT_EXPIRES_IN:", JSON.stringify(process.env.JWT_EXPIRES_IN));
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
