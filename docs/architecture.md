@@ -11,9 +11,9 @@ Answer each of these, in your own words, once the system has taken real shape.
 
 ## Phase 0 foundation (current state)
 
-The application is structured as a React/Vite browser client calling an Express API with Axios. Express is prepared to use Prisma against PostgreSQL. Local development uses Docker PostgreSQL; production is intended to use Supabase PostgreSQL. Authentication will remain in Express using bcrypt, JWTs, and HTTP-only cookies, but it is not implemented in Phase 0.
+At the Phase 0 foundation checkpoint, the application structure was a React/Vite browser client calling an Express API with Axios, with Prisma prepared for PostgreSQL. Local development used Docker PostgreSQL and the production target was planned as Supabase PostgreSQL. Authentication was intentionally deferred at that checkpoint; later Phase 2 and follow-up work implemented Express bcrypt/JWT authentication with HTTP-only cookies.
 
-The current representative request is `GET /api/health`: the browser or other client requests Express, which loads environment variables, applies CORS, JSON, and cookie middleware, and returns a health response. Database-backed CRM actions are intentionally deferred until the feature phases.
+The original Phase 0 representative request was `GET /api/health`: the browser or other client requested Express, which loaded environment variables, applied CORS, JSON, and cookie middleware, and returned a health response. Database-backed CRM actions were deferred at that checkpoint and are implemented in the later phase sections below.
 
 ---
 
@@ -41,7 +41,7 @@ A representative create-deal request is: the authenticated browser submits title
 
 Deal access is enforced in the server query: managers can access every non-deleted deal, while Sales Reps can access deals they own or where they are an existing collaborator. The React UI does not implement authorization by itself.
 
-Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that later support immutable history. Server-side search/filter/sort/pagination, reporting dashboard, and past-due alert UI remain later phases.
+Deal deletion is implemented as a soft delete through `deletedAt`, so normal lists hide deleted deals without destroying relationships that support immutable history. Server-side search/filter/sort/pagination, reporting dashboard, immutable history, and past-due alerts are documented in the later phase sections below.
 
 ## Phase 5 - Deal lifecycle
 

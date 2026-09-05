@@ -5,35 +5,82 @@ you picked one. At least five entries. For each: what you chose, what you reject
 one entry must be a decision you later reversed â€” say what changed your mind. It can be any entry
 below, not necessarily the last one; add a **Later reversed:** line to whichever one it is.
 
-## Decision 1
+The records below preserve the phase decisions made during implementation. The summaries first capture the major choices with their context and consequences; the phase logs retain the more detailed rationale.
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+## Key Decision Summaries
 
-## Decision 2
+### Decision A - HTTP-only cookie sessions
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+- **Decision:** Keep JWT sessions in HTTP-only cookies and reload the current user from PostgreSQL in `requireAuth`.
+- **Context/problem:** The browser needed persistent authentication without exposing tokens or stale roles to JavaScript.
+- **Alternatives rejected:** `localStorage`, `sessionStorage`, frontend-supplied roles, and a hosted authentication provider.
+- **Why chosen:** Cookies prevent normal JavaScript token access, while database reloads make role changes authoritative.
+- **Consequences/trade-offs:** Cross-origin deployment requires credentialed CORS and production cookie settings; frontend code cannot inspect the JWT directly.
 
-## Decision 3
+### Decision B - Exact decimal deal values
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+- **Decision:** Store deal values as Prisma/PostgreSQL `Decimal(14,2)` and submit them as text from forms.
+- **Context/problem:** Pipeline and weighted values must not accumulate binary floating-point errors.
+- **Alternatives rejected:** JavaScript numbers and PostgreSQL floating-point columns.
+- **Why chosen:** Decimal persistence and arithmetic preserve monetary precision across CRUD, dashboard, and CSV reporting.
+- **Consequences/trade-offs:** API/UI code must format Decimal values explicitly instead of treating them as ordinary numbers.
 
-## Decision 4
+### Decision C - Explicit lifecycle maps
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+- **Decision:** Define forward and backward transitions explicitly in `dealLifecycle.js`.
+- **Context/problem:** The deal workflow permits only specific one-step moves and has terminal stages.
+- **Alternatives rejected:** Inferring transitions from Prisma enum declaration order or allowing arbitrary stage strings.
+- **Why chosen:** Business rules stay explicit, reviewable, and independent of enum ordering.
+- **Consequences/trade-offs:** Adding a future stage requires updating the configuration and its consumers deliberately.
 
-## Decision 5
+### Decision D - Owner-or-collaborator server access
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+- **Decision:** Use one shared Prisma access predicate for managers, owners, and collaborators.
+- **Context/problem:** Sales Reps must not discover another user's deals by changing client filters or URLs.
+- **Alternatives rejected:** React-only filtering, a second permission model, or loading all deals before authorization.
+- **Why chosen:** Authorization is applied in database queries and membership changes take effect immediately.
+- **Consequences/trade-offs:** Every new deal-facing endpoint must reuse the predicate and include collaborator relations correctly.
+
+### Decision E - Append-only DealEvent history
+
+- **Decision:** Reuse `DealEvent` for creation, stage changes, owner reassignment, and notes; expose history read-only.
+- **Context/problem:** The assignment requires an immutable timeline without editable historical records.
+- **Alternatives rejected:** A second timeline table and event update/delete APIs.
+- **Why chosen:** Existing fields already capture actors, stages, owners, reasons, notes, and timestamps.
+- **Consequences/trade-offs:** Mutations that affect history need transactional event writes, and the timeline is fetched per deal.
+
+### Decision F - Server-side finding and reporting
+
+- **Decision:** Perform search, filters, pagination, bulk/export calculations, and dashboard aggregation in Prisma/API queries.
+- **Context/problem:** The client must not download complete datasets or calculate authorization-sensitive totals.
+- **Alternatives rejected:** Client-side filtering/pagination, browser-generated CSV, and frontend dashboard aggregation.
+- **Why chosen:** The server can enforce access, use database aggregation, and return only the requested page or summary.
+- **Consequences/trade-offs:** The frontend has more query/loading state, and database integration tests are important for query behavior.
+
+### Decision G - Expected-date alert snapshots
+
+- **Decision:** Key alert dismissal by deal, dismissing user, and expected-close-date snapshot.
+- **Context/problem:** A dismissed overdue deal must alert again if its close date changes and later passes.
+- **Alternatives rejected:** A permanent `Deal.dismissed` flag, deleting old dismissal rows, or a background alert-status table.
+- **Why chosen:** The existing composite uniqueness constraint makes reset behavior emerge from current deal state.
+- **Consequences/trade-offs:** Alert retrieval must compare the current date snapshot and the user-specific dismissal rows on every request.
+
+### Decision H - Registration remains Sales Rep-only
+
+- **Decision:** Add public registration with bcrypt validation and a server-forced `SALES_REP` role.
+- **Context/problem:** The frontend needed a registration flow without allowing privilege escalation.
+- **Alternatives rejected:** Client-selected roles, automatic Manager registration, and a second auth context.
+- **Why chosen:** Express remains the authority for role assignment and session state.
+- **Consequences/trade-offs:** Managers must still be provisioned through the existing seed/database process.
+
+## Later reversed: Prisma tooling choice
+
+- **Initial decision:** The project initially attempted the latest Prisma tooling during setup.
+- **Why initially chosen:** Using the latest release was the default setup path before runtime compatibility was verified.
+- **What changed:** The available runtime was Node 20.19.5, while the attempted latest Prisma tooling required a newer Node version.
+- **Later decision:** Pin Prisma and Prisma Client to 6.19.3, as recorded in the Phase 0 decisions and package history before the schema commit.
+- **Why it was reversed:** Prisma 6.19.3 validated and generated successfully on the available runtime, while the newer tooling did not provide a usable project CLI.
+- **Evidence:** The repository history shows the database/schema commit using matching Prisma 6.19.3 packages.
 
 ## Authentication flow decision
 

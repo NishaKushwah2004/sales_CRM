@@ -7,6 +7,30 @@ Answer each of these, in your own words.
 - What did you estimate versus what it actually took?
 - What did you cut when you ran short?
 
+## Effort record
+
+The repository records scope notes and commit timestamps, but it does not contain reliable per-phase
+time tracking. The table therefore distinguishes the one explicit estimate from retrospective scope
+records. “Not recorded” is intentional; these are not fabricated clock measurements.
+
+| Phase | Work | Estimated | Actual | Status |
+|---|---|---:|---:|---|
+| 0 | Foundation and local toolchain | Not recorded | Not measured | Complete |
+| 1 | Prisma schema, migration, and seed | Not recorded | Not measured | Complete |
+| 2 | Authentication and roles | Not recorded | Not measured | Complete |
+| 3 | Companies | Not recorded | Not measured | Complete |
+| 4 | Deals CRUD | 90 minutes (recorded) | Interrupted/manual completion; clock time not recorded | Complete |
+| 5 | Deal lifecycle | Not recorded | Not measured | Complete |
+| 6 | Collaborators | Not recorded | Not measured | Complete |
+| 7 | Deal finding | Retrospective scope estimate; exact time not recorded | Focused session; not measured | Complete |
+| 8 | Bulk actions and CSV export | Retrospective scope estimate; exact time not recorded | Focused session; not measured | Complete |
+| 9 | Dashboard | Retrospective scope estimate; exact time not recorded | Focused session; not measured | Complete |
+| 10 | Immutable history/timeline | Retrospective scope estimate; exact time not recorded | Focused session; not measured | Complete |
+| 11 | Past-due alerts | Retrospective scope estimate; exact time not recorded | Focused session; not measured | Complete |
+| Auth follow-up | Registration and auth navigation | Retrospective scope estimate; exact time not recorded | Focused session; not measured | Complete |
+
+Phases 12 and later are not complete and are intentionally outside this repository state.
+
 ---
 
 ## Phase 0 — Foundation
@@ -86,7 +110,7 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 
 **Testing:** backend syntax, Prisma validation/generation, frontend lint/build, query-shape inspection, and request-level API validation/access tests were run. PostgreSQL/Docker availability remains the infrastructure limitation for production database integration tests.
 
-**Estimated vs actual:** the phase was implemented as a focused backend/query and page update during the current session; no separate estimate was recorded in the existing project notes.
+**Estimated vs actual:** retrospective scope note only; exact time was not recorded or measured.
 
 **Deviation/cut:** no bulk actions, CSV export, dashboard, timeline, alerts, schema changes, or other Phase 8+ functionality was added.
 
@@ -98,7 +122,7 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 
 **Testing:** backend syntax, Prisma validation/generation, frontend lint/build, and request-level bulk authorization/persistence checks were run. The request harness verified mixed results, duplicate and invalid targets, manager-only access, event creation, close fields, and CSV response headers. Database-backed verification remains blocked by unavailable PostgreSQL/Docker infrastructure.
 
-**Estimated vs actual:** implemented as a focused extension during the current session; no separate estimate was recorded in the existing project notes.
+**Estimated vs actual:** retrospective scope note only; exact time was not recorded or measured.
 
 **Deviation/cut:** no dashboard, analytics, timeline UI, alerts, notifications, schema migration, or other Phase 9+ feature was added.
 
@@ -110,7 +134,7 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 
 **Testing:** backend syntax, Prisma validation/generation, frontend lint/build, diagnostics, and request-level dashboard aggregation/access tests were run. PostgreSQL/Docker availability remains the limitation for database-backed integration testing.
 
-**Estimated vs actual:** implemented as a focused dashboard endpoint and page during the current session; no separate estimate was recorded in the existing project notes.
+**Estimated vs actual:** retrospective scope note only; exact time was not recorded or measured.
 
 **Deviation/cut:** no timeline UI, alerts, notifications, real-time updates, CSV/bulk changes, schema migration, or Phase 10+ functionality was added.
 
@@ -122,7 +146,7 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 
 **Testing:** isolated request-level tests passed for manager, owner, collaborator, unrelated rep, and unauthenticated history access; chronological ordering, event fields, stage/owner/note creation, note validation, and absent mutation routes were verified. Backend syntax, Prisma validation/generation, frontend lint/build, diagnostics, and diff checks were also run.
 
-**Estimated vs actual:** implemented as a focused history endpoint and detail-page extension during the current session; no separate estimate was recorded in the existing project notes.
+**Estimated vs actual:** retrospective scope note only; exact time was not recorded or measured.
 
 **Limitations:** PostgreSQL and Docker Desktop remain unavailable, so database-backed integration testing was not claimed.
 
@@ -134,6 +158,6 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 
 **Testing:** the isolated request-level matrix passed for manager, owner, collaborator, unrelated rep, and unauthenticated access; yesterday/today/tomorrow dates; dismissal; date changes; closed/deleted/reopened deals; and repeated dismissal. Backend syntax, Prisma validation/generation, frontend lint/build, diagnostics, and diff checks were also run.
 
-**Estimated vs actual:** implemented as a focused alert endpoint and dashboard panel during the current session; no separate estimate was recorded in the existing project notes.
+**Estimated vs actual:** retrospective scope note only; exact time was not recorded or measured.
 
 **Limitations:** PostgreSQL and Docker Desktop remain unavailable, so database-backed integration testing was not claimed.
