@@ -127,7 +127,7 @@ router.get('/alerts/past-due', async (req, res, next) => {
         value: deal.value.toFixed(2),
         canDismiss: deal.ownerId === req.user.id,
       }))
-    return res.json({ success: true, data: { alerts } })
+    return res.json({ success: true, data: { alerts, count: alerts.length } })
   } catch (error) {
     return next(error)
   }
