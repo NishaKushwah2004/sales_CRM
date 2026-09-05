@@ -21,6 +21,11 @@ enum DealStage {
   LOST
 }
 
+enum DealTaskStatus {
+  PENDING
+  COMPLETED
+}
+
 enum DealEventType {
   DEAL_CREATED
   STAGE_CHANGED
@@ -42,6 +47,7 @@ model User {
   previousOwnerEvents DealEvent[]          @relation("DealEventPreviousOwner")
   newOwnerEvents      DealEvent[]          @relation("DealEventNewOwner")
   alertDismissals     DealAlertDismissal[] @relation("AlertDismissedBy")
+  tasksAssigned       DealTask[]           @relation("TaskAssignee")
 
   @@index([role])
 }
@@ -81,6 +87,7 @@ model Deal {
   collaborators     DealCollaborator[]
   events            DealEvent[]
   alertDismissals   DealAlertDismissal[]
+  tasks             DealTask[]
 
   @@index([companyId, stage])
   @@index([ownerId, stage])
@@ -121,6 +128,26 @@ model DealEvent {
   @@index([dealId, occurredAt])
   @@index([actorId, occurredAt])
   @@index([type, occurredAt])
+}
+
+
+model DealTask {
+  id           String         @id @default(uuid()) @db.Uuid
+  dealId       String         @db.Uuid
+  assignedToId String         @db.Uuid
+  title        String         @db.VarChar(255)
+  description  String?        @db.Text
+  dueDate      DateTime?      @db.Timestamptz(6)
+  status       DealTaskStatus @default(PENDING)
+  completedAt  DateTime?      @db.Timestamptz(6)
+  createdAt    DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime       @updatedAt @db.Timestamptz(6)
+  deal         Deal           @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  assignedTo   User           @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+
+  @@index([dealId, status])
+  @@index([assignedToId, status])
+  @@index([dueDate, status])
 }
 
 model DealAlertDismissal {
