@@ -35,6 +35,12 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Rejected:**
 - **Why:**
 
+## Authentication flow decision
+
+- **Chose:** Keep JWTs in the existing HTTP-only cookie flow and add registration as a server-validated Sales Rep-only endpoint.
+- **Rejected:** Browser token storage, frontend-only registration role selection, or a second auth context.
+- **Why:** The existing authentication architecture already centralizes session restoration and role truth in Express; registration must not create Managers or expose credentials.
+
 ---
 
 ## Phase 0 Decision 1

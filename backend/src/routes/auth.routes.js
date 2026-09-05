@@ -7,7 +7,23 @@ const { requireAuth } = require('../middleware/auth')
 const { allowRoles } = require('../middleware/authorize')
 const router = express.Router()
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const minimumPasswordLength = 8
 const safeUser = (user) => ({ id: user.id, email: user.email, role: user.role })
+router.post('/register', async (req, res, next) => {
+  try {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+    const password = typeof req.body?.password === 'string' ? req.body.password : ''
+    if (!emailPattern.test(email) || password.length < minimumPasswordLength) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: `A valid email and password of at least ${minimumPasswordLength} characters are required.` } })
+    }
+    const passwordHash = await bcrypt.hash(password, 12)
+    const user = await prisma.user.create({ data: { email, passwordHash, role: 'SALES_REP' } })
+    return res.status(201).json({ success: true, data: { user: safeUser(user) } })
+  } catch (error) {
+    if (error.code === 'P2002') return res.status(409).json({ success: false, error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists.' } })
+    return next(error)
+  }
+})
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body ?? {}

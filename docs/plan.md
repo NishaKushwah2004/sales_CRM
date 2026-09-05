@@ -36,6 +36,10 @@ Implemented the authentication slice end to end: Prisma-backed bcrypt login, HTT
 
 Validation included backend syntax/Prisma checks, frontend lint/build, and local HTTP checks for invalid credentials, manager and sales-rep sessions, unauthenticated `/me`, manager-only access, logout, and post-logout access.
 
+### Authentication flow hardening
+
+The existing cookie-based login, `/me`, logout, AuthContext, and ProtectedRoute were preserved. The missing registration endpoint/page and public-route navigation were added: registration creates Sales Reps only, successful registration returns to login, authenticated public routes redirect to the dashboard, and visible logout actions call the backend before navigating to login.
+
 ## Phase 3 - Companies
 
 Implemented the Companies vertical slice: authenticated server-side CRUD-style company routes, manager owner selection, ownership/collaboration access checks, soft archive/restore, and protected React list/create/detail/edit views. API tests verified manager flow, archive visibility, restore, sales-rep self-ownership on create, and cross-owner `403` protection. No Deal feature was implemented.

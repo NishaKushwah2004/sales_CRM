@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import api from '../api/client'
@@ -18,6 +18,7 @@ function formatCurrency(value) {
 
 export default function DashboardPage() {
   const { logout } = useAuth()
+  const navigate = useNavigate()
   const [dashboard, setDashboard] = useState(emptyDashboard)
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -50,6 +51,11 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleLogout() {
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
   const stageData = dashboard.openDealsByStage.map((item) => ({ ...item, label: stageLabels[item.stage] || item.stage }))
   const ownerData = dashboard.openDealsByOwner.map((item) => ({ ...item, label: item.ownerEmail }))
   const weeklyData = dashboard.wonPerWeek.map((item) => ({ ...item, label: item.week.slice(5) }))
@@ -58,7 +64,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
       <div className="mx-auto max-w-6xl">
-        <nav className="flex flex-wrap items-center gap-3 text-sm"><Link className="text-sky-300" to="/">Dashboard</Link><Link className="text-slate-300 hover:text-sky-300" to="/companies">Companies</Link><Link className="text-slate-300 hover:text-sky-300" to="/deals">Deals</Link><button className="text-slate-400 hover:text-slate-100" type="button" onClick={logout}>Log out</button></nav>
+        <nav className="flex flex-wrap items-center gap-3 text-sm"><Link className="text-sky-300" to="/">Dashboard</Link><Link className="text-slate-300 hover:text-sky-300" to="/companies">Companies</Link><Link className="text-slate-300 hover:text-sky-300" to="/deals">Deals</Link><button className="text-slate-400 hover:text-slate-100" type="button" onClick={handleLogout}>Log out</button></nav>
         <p className="mt-8 text-sm font-semibold uppercase tracking-[0.2em] text-sky-400">Sales overview</p>
         <h1 className="mt-3 text-3xl font-bold">Dashboard</h1>
         <p className="mt-2 text-slate-400">A server-calculated view of your accessible pipeline.</p>

@@ -183,6 +183,20 @@ The backend gained `GET /api/deals/alerts/past-due` and `POST /api/deals/:id/ale
 
 The first alert harness used string values where the real Prisma result supplies Decimal values and expected a deal dated today to be overdue. The fixtures were corrected to Decimal-compatible values and strict date semantics; the final independent matrix passed.
 
+## Authentication flow integration
+
+### Prompt
+
+Inspect the existing authentication implementation and improve only the frontend integration plus missing registration. Preserve the HTTP-only cookie, AuthContext, `/me`, logout, ProtectedRoute, and role authorization. Add a Sales Rep-only registration endpoint/page only if absent, registration links, explicit dashboard redirects, and logout navigation. Do not start Phase 12 or add unrelated CRM features.
+
+### What you got
+
+The existing login, logout, `/me`, and AuthContext were retained. A missing backend registration endpoint and matching Register page were added, along with `/register` routing, login success feedback, and explicit logout navigation.
+
+### What you corrected
+
+No backend registration endpoint existed, so the smallest server-side addition was made with bcrypt hashing, duplicate-email handling, an eight-character minimum password, and a hard-coded `SALES_REP` role. Manager-check was left untouched because `/me` already supplies the role and server authorization remains authoritative.
+
 ## Phase 7 - Deal Finding
 
 ### Prompt

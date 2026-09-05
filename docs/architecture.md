@@ -25,6 +25,8 @@ On browser startup, the auth provider calls `/api/auth/me` to restore the sessio
 
 For local development the cookie is `httpOnly`, `sameSite=lax`, and non-secure so it works over localhost HTTP. In production (`NODE_ENV=production`), it is `secure` and `sameSite=none` for the planned separate frontend/backend HTTPS deployment. CORS accepts only `CLIENT_URL` with credentials enabled.
 
+The public authentication flow also includes `POST /api/auth/register`, which normalizes email, validates an eight-character minimum password, hashes with bcrypt, and always creates a `SALES_REP`. React exposes `/register`, redirects successful registration to `/login`, restores sessions through `/api/auth/me`, and sends logout to `/api/auth/logout` before navigating to `/login`. Authenticated `/` and `/dashboard` render the dashboard; existing protected CRM routes remain behind `ProtectedRoute`.
+
 ---
 
 ## Phase 3 - Companies
