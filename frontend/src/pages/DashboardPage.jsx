@@ -19,14 +19,19 @@ function formatCurrency(value) {
 export default function DashboardPage() {
   const { logout } = useAuth()
   const [dashboard, setDashboard] = useState(emptyDashboard)
+  const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     async function load() {
       try {
-        const response = await api.get('/dashboard')
-        setDashboard(response.data.data)
+        const [dashboardResponse, alertResponse] = await Promise.all([
+          api.get('/dashboard'),
+          api.get('/deals/alerts/past-due'),
+        ])
+        setDashboard(dashboardResponse.data.data)
+        setAlerts(alertResponse.data.data.alerts)
       } catch (requestError) {
         setError(requestError.response?.data?.error?.message || 'Unable to load dashboard.')
       } finally {
@@ -35,6 +40,15 @@ export default function DashboardPage() {
     }
     load()
   }, [])
+
+  async function dismissAlert(dealId) {
+    try {
+      await api.post(`/deals/${dealId}/alerts/past-due/dismiss`)
+      setAlerts((current) => current.filter((alert) => alert.dealId !== dealId))
+    } catch (requestError) {
+      setError(requestError.response?.data?.error?.message || 'Unable to dismiss alert.')
+    }
+  }
 
   const stageData = dashboard.openDealsByStage.map((item) => ({ ...item, label: stageLabels[item.stage] || item.stage }))
   const ownerData = dashboard.openDealsByOwner.map((item) => ({ ...item, label: item.ownerEmail }))
@@ -57,6 +71,11 @@ export default function DashboardPage() {
               ['Won This Month', metrics.wonThisMonth],
               ['Lost This Month', metrics.lostThisMonth],
             ].map(([label, value]) => <article className="rounded border border-slate-800 bg-slate-900 p-5" key={label}><p className="text-sm text-slate-400">{label}</p><p className="mt-3 text-2xl font-semibold text-slate-100">{value}</p></article>)}
+          </section>
+
+          <section className="mt-6 rounded border border-amber-800 bg-amber-950/40 p-5" aria-labelledby="alerts-heading">
+            <h2 id="alerts-heading" className="text-lg font-semibold text-amber-100">Past Due</h2>
+            {alerts.length === 0 ? <p className="mt-3 text-sm text-amber-200/70">No past-due deals.</p> : <ul className="mt-4 space-y-3">{alerts.map((alert) => <li className="rounded border border-amber-800/70 bg-slate-950/40 p-4" key={alert.dealId}><div className="flex flex-wrap items-start justify-between gap-4"><div><Link className="font-semibold text-amber-100" to={`/deals/${alert.dealId}`}>{alert.title}</Link><p className="mt-1 text-sm text-amber-200/80">{alert.companyName} · {stageLabels[alert.stage] || alert.stage}</p><p className="mt-1 text-sm text-amber-200/70">Expected close: {alert.expectedCloseDate}</p></div>{alert.canDismiss && <button className="rounded border border-amber-500 px-3 py-1 text-sm text-amber-100" onClick={() => dismissAlert(alert.dealId)}>Dismiss</button>}</div></li>)}</ul>}
           </section>
 
           <section className="mt-6 grid gap-6 lg:grid-cols-2">

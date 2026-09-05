@@ -252,3 +252,21 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Chose:** Fetch history only for the open deal detail view and order it oldest-first on the server.
 - **Rejected:** Loading all event history in the deal list or sorting arbitrary event results in React.
 - **Why:** Per-deal loading keeps the list efficient, while backend ordering gives every client the same chronological timeline.
+
+## Phase 11 Decision 1
+
+- **Chose:** Key dismissal state by deal, dismissing user, and the current expected-close-date snapshot.
+- **Rejected:** A permanent `dismissed` flag on Deal or deleting old dismissal rows when dates change.
+- **Why:** A changed expected close date must create a fresh alert state while preserving the historical dismissal record.
+
+## Phase 11 Decision 2
+
+- **Chose:** Derive alerts from current open/deleted/date state and matching dismissal rows at request time.
+- **Rejected:** A mutable alert-status field, cron job, or background notification table.
+- **Why:** The required behavior is deterministic from existing deal state, avoids duplicated state, and needs no real-time infrastructure.
+
+## Phase 11 Decision 3
+
+- **Chose:** Allow owners to dismiss; managers and collaborators can view alerts but cannot dismiss another owner's alert.
+- **Rejected:** Granting dismissal to every user who can view or manage the deal.
+- **Why:** The assignment assigns responsibility for the overdue deal to its owner, while existing deal access still governs visibility.

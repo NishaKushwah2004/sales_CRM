@@ -169,6 +169,20 @@ The backend gained `GET /api/deals/:id/history` and `POST /api/deals/:id/notes`,
 
 The implementation verified the history endpoint with independent manager, owner, collaborator, and unrelated-rep request contexts rather than relying on the earlier shared-auth-state test adapter. The resulting authorization and immutability matrix passed.
 
+## Phase 11 - Past-Due Alerts
+
+### Prompt
+
+Implement only Phase 11 in the current Phase 10 Sales CRM. Preserve authentication, access control, CRUD, lifecycle, collaborators, search, bulk actions, CSV export, dashboard, and immutable history. Reuse `DealAlertDismissal`; add server-derived overdue alert retrieval and owner-only idempotent dismissal keyed by the expected-close-date snapshot, plus a small dashboard alert panel. Test independent manager/owner/collaborator/unrelated contexts, date boundaries, dismissal reset after date changes, closed/deleted/reopened behavior, and do not implement Phase 12 or later.
+
+### What you got
+
+The backend gained `GET /api/deals/alerts/past-due` and `POST /api/deals/:id/alerts/past-due/dismiss`. The query derives overdue open alerts server-side and matches dismissal snapshots to the current expected close date. The dashboard displays alerts and exposes dismissal only when the API marks the current user as the owner.
+
+### What you corrected
+
+The first alert harness used string values where the real Prisma result supplies Decimal values and expected a deal dated today to be overdue. The fixtures were corrected to Decimal-compatible values and strict date semantics; the final independent matrix passed.
+
 ## Phase 7 - Deal Finding
 
 ### Prompt

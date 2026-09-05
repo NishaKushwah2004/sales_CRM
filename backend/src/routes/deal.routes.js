@@ -13,6 +13,7 @@ const positiveInteger = /^[1-9]\d*$/
 const sortFields = { value: 'value', expectedCloseDate: 'expectedCloseDate', lastUpdate: 'updatedAt' }
 const defaultPageSize = 10
 const maxPageSize = 100
+const openStages = [DealStage.NEW, DealStage.QUALIFIED, DealStage.PROPOSAL, DealStage.NEGOTIATION]
 const include = {
   company: { select: { id: true, name: true, archivedAt: true } },
   owner: { select: { id: true, email: true, role: true } },
@@ -24,6 +25,15 @@ function validId(value) {
 
 function validDate(value) {
   return typeof value === 'string' && !Number.isNaN(Date.parse(value))
+}
+
+function utcToday() {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+}
+
+function dateKey(value) {
+  return value.toISOString().slice(0, 10)
 }
 
 function parseDealFields(body) {
@@ -81,6 +91,75 @@ function canManageCollaborators(deal, user) {
 }
 
 router.use(requireAuth)
+
+router.get('/alerts/past-due', async (req, res, next) => {
+  try {
+    const today = utcToday()
+    const deals = await prisma.deal.findMany({
+      where: { deletedAt: null, stage: { in: openStages }, expectedCloseDate: { lt: today }, ...dealAccess(req.user) },
+      select: {
+        id: true,
+        title: true,
+        value: true,
+        stage: true,
+        ownerId: true,
+        expectedCloseDate: true,
+        company: { select: { name: true } },
+        owner: { select: { id: true, email: true, role: true } },
+      },
+      orderBy: [{ expectedCloseDate: 'asc' }, { id: 'asc' }],
+    })
+    const dealIds = deals.map((deal) => deal.id)
+    const dismissals = dealIds.length === 0 ? [] : await prisma.dealAlertDismissal.findMany({
+      where: { dealId: { in: dealIds }, dismissedById: req.user.id },
+      select: { dealId: true, expectedCloseDate: true },
+    })
+    const dismissedDates = new Set(dismissals.map((dismissal) => `${dismissal.dealId}:${dateKey(dismissal.expectedCloseDate)}`))
+    const alerts = deals
+      .filter((deal) => !dismissedDates.has(`${deal.id}:${dateKey(deal.expectedCloseDate)}`))
+      .map((deal) => ({
+        dealId: deal.id,
+        title: deal.title,
+        companyName: deal.company.name,
+        owner: deal.owner,
+        expectedCloseDate: dateKey(deal.expectedCloseDate),
+        stage: deal.stage,
+        value: deal.value.toFixed(2),
+        canDismiss: deal.ownerId === req.user.id,
+      }))
+    return res.json({ success: true, data: { alerts } })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/:id/alerts/past-due/dismiss', async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user)
+    if (!deal) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You do not have access to this deal.' } })
+    }
+    if (deal.ownerId !== req.user.id) {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only the deal owner can dismiss this alert.' } })
+    }
+    if (!openStages.includes(deal.stage)) {
+      return res.status(409).json({ success: false, error: { code: 'DEAL_CLOSED', message: 'Closed deals cannot have past-due alerts.' } })
+    }
+    if (!(deal.expectedCloseDate < utcToday())) {
+      return res.status(409).json({ success: false, error: { code: 'NOT_PAST_DUE', message: 'This deal is not past due.' } })
+    }
+    try {
+      await prisma.dealAlertDismissal.create({
+        data: { dealId: deal.id, dismissedById: req.user.id, expectedCloseDate: deal.expectedCloseDate },
+      })
+    } catch (error) {
+      if (error.code !== 'P2002') throw error
+    }
+    return res.json({ success: true, data: { dismissed: true, expectedCloseDate: dateKey(deal.expectedCloseDate) } })
+  } catch (error) {
+    return next(error)
+  }
+})
 
 router.get('/owners', async (req, res, next) => {
   try {

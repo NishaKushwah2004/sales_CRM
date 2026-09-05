@@ -76,3 +76,9 @@ The protected React root route `/` renders this dashboard as the authenticated l
 `GET /api/deals/:id/history` reuses the existing deal access predicate and returns that deal's `DealEvent` rows oldest-first with deterministic timestamp/ID ordering. The response includes safe actor and owner identities, stage fields, backward reasons, and note bodies. There are no event update or delete routes. `POST /api/deals/:id/notes` is the only new history-writing action; it appends a validated plain-text `NOTE_ADDED` event.
 
 Deal creation, normal owner reassignment, lifecycle transitions, reopen, and bulk reassignment write their corresponding events at the existing mutation boundary. State changes and required events use Prisma transactions where both a deal and event change; history is fetched only for the currently viewed deal and rendered read-only in the detail page.
+
+## Phase 11 - Past-due alerts
+
+`GET /api/deals/alerts/past-due` derives alerts server-side from non-deleted open deals whose `expectedCloseDate` is before the current UTC date. It applies the shared deal access predicate, then excludes only dismissal rows matching the current user's deal ID and current expected-close-date snapshot. `POST /api/deals/:id/alerts/past-due/dismiss` is authenticated and owner-only; managers and collaborators may view authorized alerts but cannot dismiss another user's deal.
+
+Dismissals reuse `DealAlertDismissal` and its deal/user/date uniqueness constraint. Changing a deal's expected close date naturally creates a new effective alert state because the old snapshot no longer matches. The dashboard fetches alerts alongside its existing data and removes an alert locally after a successful dismissal; no polling, notification worker, or new table was added.

@@ -121,3 +121,15 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 **Estimated vs actual:** implemented as a focused history endpoint and detail-page extension during the current session; no separate estimate was recorded in the existing project notes.
 
 **Limitations:** PostgreSQL and Docker Desktop remain unavailable, so database-backed integration testing was not claimed.
+
+## Phase 11 - Past-Due Alerts
+
+**Intended work:** derive server-side alerts for overdue open deals, reuse the expected-date dismissal snapshot, restrict dismissal to owners, and add a small dashboard alert panel.
+
+**Actual work:** added authenticated retrieval and idempotent owner-only dismissal endpoints, applied existing access/open/deleted/date rules in the database query, and added dashboard alert display and dismissal behavior.
+
+**Testing:** the isolated request-level matrix passed for manager, owner, collaborator, unrelated rep, and unauthenticated access; yesterday/today/tomorrow dates; dismissal; date changes; closed/deleted/reopened deals; and repeated dismissal. Backend syntax, Prisma validation/generation, frontend lint/build, diagnostics, and diff checks were also run.
+
+**Estimated vs actual:** implemented as a focused alert endpoint and dashboard panel during the current session; no separate estimate was recorded in the existing project notes.
+
+**Limitations:** PostgreSQL and Docker Desktop remain unavailable, so database-backed integration testing was not claimed.
