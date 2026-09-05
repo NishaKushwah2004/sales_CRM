@@ -29,7 +29,7 @@ records. “Not recorded” is intentional; these are not fabricated clock measu
 | 11 | Past-due alerts | Retrospective scope estimate; exact time not recorded | Focused session; not measured | Complete |
 | Auth follow-up | Registration and auth navigation | Retrospective scope estimate; exact time not recorded | Focused session; not measured | Complete |
 
-Phases 12 and later are not complete and are intentionally outside this repository state.
+Phase 12 was completed as a focused hardening pass after the original feature phases. Phases 14 and 15 remain pending until deployment and final submission are completed.
 
 ---
 
@@ -161,3 +161,14 @@ Implemented the Companies vertical slice: authenticated server-side CRUD-style c
 **Estimated vs actual:** retrospective scope note only; exact time was not recorded or measured.
 
 **Limitations:** PostgreSQL and Docker Desktop remain unavailable, so database-backed integration testing was not claimed.
+
+
+## Phase 12 - Testing and security hardening
+
+Completed a focused verification and hardening pass without changing the assignment's scope. Added a small Node.js built-in test suite covering the lifecycle transition/probability contract and development/production session-cookie behavior. Removed temporary startup debug logging, made the server safely fall back to port 5000 when a malformed local `PORT` value is present, added basic API security response headers, rejected edits to closed deals, bounded bulk actions to 100 deal IDs, and added debounced/cancelable deal-list requests so rapid search changes do not race stale responses.
+
+Validation: all backend source files passed `node --check`; the new backend test suite passed 5/5. Frontend dependency installation/build could not be repeated in the offline execution environment because the npm cache did not contain every locked package, so the previously recorded frontend lint/build result remains the last successful validation. PostgreSQL-backed integration testing remains environment-dependent and was not represented as passing.
+
+## Remaining work
+
+Phase 13 documentation is substantially complete. Phase 14 deployment remains required, followed by a final Phase 15 evaluation/submission pass.

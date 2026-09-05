@@ -210,3 +210,14 @@ The list endpoint now builds one Prisma `where` from access control and validate
 ### What you corrected
 
 An intermediate patch left a partial JSX merge in `DealsPage.jsx`, which the focused lint check caught immediately. The page was recreated from the reviewed implementation, the accidental patch markers were removed, and lint passed before the remaining validation work continued.
+
+
+## Phase 12 - Read-only audit and hardening
+
+### Prompt actually used
+
+Inspect the current Sales CRM against README.md as the single source of truth. First perform a read-only audit of all ten mandatory goals, every backend endpoint and frontend consumer, authorization/IDOR behavior, lifecycle, collaborators, bulk operations, CSV export, dashboard, immutable history, past-due alerts, Prisma schema, duplication, environment configuration, tests, and documentation consistency. Do not modify anything during the inspection. After reviewing the findings, make only verified Phase 12 hardening changes: remove temporary debug logging, address concrete security/integrity issues, add focused automated tests, improve rapid search request behavior, and preserve all existing assignment functionality. Do not add stretch features or perform a large architectural rewrite.
+
+### Result
+
+The audit confirmed server-side deal finding and dashboard routing were present in the current project state. The hardening pass removed debug startup logs, validated malformed port input safely, added basic API security headers, prevented edits to closed deals, capped bulk selections, added five focused backend unit tests, and made deal search requests debounced and cancelable.

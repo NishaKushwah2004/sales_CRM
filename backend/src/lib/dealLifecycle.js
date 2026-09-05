@@ -1,12 +1,21 @@
-const { DealStage, DealEventType } = require('../../../node_modules/@prisma/client')
-const { forwardTransitions } = require('../config/dealLifecycle')
+const {
+  DealStage,
+  DealEventType,
+} = require("../../../node_modules/@prisma/client");
+const { forwardTransitions } = require("../config/dealLifecycle");
 
 function nextForwardStage(stage) {
-  return forwardTransitions[stage]?.[0] || null
+  return forwardTransitions[stage]?.[0] || null;
 }
 
-async function persistStageTransition(transaction, deal, newStage, actorId, backwardReason) {
-  const oldStage = deal.stage
+async function persistStageTransition(
+  transaction,
+  deal,
+  newStage,
+  actorId,
+  backwardReason,
+) {
+  const oldStage = deal.stage;
   await transaction.deal.update({
     where: { id: deal.id },
     data: {
@@ -15,7 +24,7 @@ async function persistStageTransition(transaction, deal, newStage, actorId, back
         ? { closedAt: new Date(), stageBeforeClose: oldStage }
         : {}),
     },
-  })
+  });
   await transaction.dealEvent.create({
     data: {
       dealId: deal.id,
@@ -25,8 +34,8 @@ async function persistStageTransition(transaction, deal, newStage, actorId, back
       newStage,
       backwardReason,
     },
-  })
-  return { oldStage, newStage }
+  });
+  return { oldStage, newStage };
 }
 
-module.exports = { nextForwardStage, persistStageTransition }
+module.exports = { nextForwardStage, persistStageTransition };
