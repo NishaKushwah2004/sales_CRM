@@ -3,6 +3,7 @@ const {
   UserRole,
   DealStage,
   DealEventType,
+  DealTaskStatus,
   Prisma,
 } = require("../../../node_modules/@prisma/client");
 const prisma = require("../lib/prisma");
@@ -17,6 +18,7 @@ const {
   persistStageTransition,
 } = require("../lib/dealLifecycle");
 const { dealAccess } = require("../lib/dealAccess");
+const { canManageTasks } = require("../lib/taskAccess");
 
 const router = express.Router();
 const uuid =
@@ -129,6 +131,38 @@ async function findUser(id) {
 
 function canManageCollaborators(deal, user) {
   return user.role === UserRole.MANAGER || deal.ownerId === user.id;
+}
+
+const taskInclude = {
+  assignedTo: { select: { id: true, email: true, role: true } },
+};
+
+function validTaskStatus(value) {
+  return value === DealTaskStatus.PENDING || value === DealTaskStatus.COMPLETED;
+}
+
+function parseTaskDueDate(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (!validDate(value)) return undefined;
+  return new Date(value);
+}
+
+function parseTaskFields(body) {
+  const title = typeof body?.title === "string" ? body.title.trim() : "";
+  if (!title || title.length > 255) return null;
+
+  const description = body?.description;
+  if (description !== undefined && description !== null && typeof description !== "string") return null;
+  if (typeof description === "string" && description.length > 5000) return null;
+
+  const dueDate = parseTaskDueDate(body?.dueDate);
+  if (dueDate === undefined) return null;
+
+  return {
+    title,
+    description: typeof description === "string" ? description.trim() || null : null,
+    dueDate,
+  };
 }
 
 router.use(requireAuth);
@@ -964,6 +998,260 @@ router.delete("/:id/collaborators/:userId", async (req, res, next) => {
       success: true,
       data: { message: "Collaborator removed." },
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/:id/tasks", async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user);
+    if (!deal) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "You do not have access to this deal." },
+      });
+    }
+
+    const tasks = await prisma.dealTask.findMany({
+      where: { dealId: deal.id },
+      include: taskInclude,
+      orderBy: [
+        { status: "asc" },
+        { dueDate: { sort: "asc", nulls: "last" } },
+        { createdAt: "desc" },
+      ],
+    });
+
+    return res.json({ success: true, data: { tasks } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/:id/tasks", async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user);
+    if (!deal) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "You do not have access to this deal." },
+      });
+    }
+    if (!canManageTasks(deal, req.user)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Only the manager or deal owner can create tasks." },
+      });
+    }
+
+    const fields = parseTaskFields(req.body);
+    if (!fields) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_TASK",
+          message: "Title is required, title/description lengths must be valid, and dueDate must be a valid date.",
+        },
+      });
+    }
+
+    const assignedToId = req.body?.assignedToId;
+    if (!validId(assignedToId)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "INVALID_ASSIGNEE", message: "A valid assignee id is required." },
+      });
+    }
+
+    const assignee = await prisma.user.findFirst({
+      where: {
+        id: assignedToId,
+        role: UserRole.SALES_REP,
+        OR: [
+          { id: deal.ownerId },
+          { collaborations: { some: { dealId: deal.id } } },
+        ],
+      },
+      select: { id: true, email: true, role: true },
+    });
+    if (!assignee) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "INVALID_ASSIGNEE",
+          message: "The assignee must be a Sales Rep who has access to this deal.",
+        },
+      });
+    }
+
+    const task = await prisma.dealTask.create({
+      data: {
+        ...fields,
+        assignedToId: assignee.id,
+      },
+      include: taskInclude,
+    });
+
+    return res.status(201).json({ success: true, data: { task } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/:id/tasks/:taskId", async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user);
+    if (!deal) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "You do not have access to this deal." },
+      });
+    }
+    if (!validId(req.params.taskId)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "INVALID_TASK", message: "Task id is invalid." },
+      });
+    }
+
+    const task = await prisma.dealTask.findFirst({
+      where: { id: req.params.taskId, dealId: deal.id },
+      include: taskInclude,
+    });
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: { code: "TASK_NOT_FOUND", message: "Task not found." },
+      });
+    }
+    if (req.user.role !== UserRole.MANAGER && deal.ownerId !== req.user.id) {
+      const collaborator = await prisma.dealCollaborator.findUnique({
+        where: { dealId_userId: { dealId: deal.id, userId: req.user.id } },
+        select: { userId: true },
+      });
+      if (!collaborator) {
+        return res.status(403).json({
+          success: false,
+          error: { code: "FORBIDDEN", message: "You do not have permission to update tasks on this deal." },
+        });
+      }
+    }
+
+    const body = req.body || {};
+    const fields = {};
+    if (body.title !== undefined || body.description !== undefined || body.dueDate !== undefined) {
+      const parsed = parseTaskFields({
+        title: body.title === undefined ? task.title : body.title,
+        description: body.description === undefined ? task.description : body.description,
+        dueDate: body.dueDate === undefined ? task.dueDate?.toISOString() : body.dueDate,
+      });
+      if (!parsed) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_TASK", message: "Task fields are invalid." },
+        });
+      }
+      Object.assign(fields, parsed);
+    }
+
+    if (body.status !== undefined) {
+      if (!validTaskStatus(body.status)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_STATUS", message: "Status must be PENDING or COMPLETED." },
+        });
+      }
+      fields.status = body.status;
+      fields.completedAt = body.status === DealTaskStatus.COMPLETED ? (task.completedAt || new Date()) : null;
+    }
+
+    if (body.assignedToId !== undefined) {
+      if (!canManageTasks(deal, req.user)) {
+        return res.status(403).json({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Only the manager or deal owner can reassign tasks." },
+        });
+      }
+      if (!validId(body.assignedToId)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_ASSIGNEE", message: "Assignee id is invalid." },
+        });
+      }
+      const assignee = await prisma.user.findFirst({
+        where: {
+          id: body.assignedToId,
+          role: UserRole.SALES_REP,
+          OR: [
+            { id: deal.ownerId },
+            { collaborations: { some: { dealId: deal.id } } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!assignee) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "INVALID_ASSIGNEE", message: "The assignee must have access to this deal." },
+        });
+      }
+      fields.assignedToId = assignee.id;
+    }
+
+    if (Object.keys(fields).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "NO_CHANGES", message: "At least one task field must be changed." },
+      });
+    }
+
+    const updated = await prisma.dealTask.update({
+      where: { id: task.id },
+      data: fields,
+      include: taskInclude,
+    });
+    return res.json({ success: true, data: { task: updated } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/:id/tasks/:taskId", async (req, res, next) => {
+  try {
+    const deal = await findAccessibleDeal(req.params.id, req.user);
+    if (!deal) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "You do not have access to this deal." },
+      });
+    }
+    if (!canManageTasks(deal, req.user)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Only the manager or deal owner can delete tasks." },
+      });
+    }
+    if (!validId(req.params.taskId)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "INVALID_TASK", message: "Task id is invalid." },
+      });
+    }
+
+    const task = await prisma.dealTask.findFirst({
+      where: { id: req.params.taskId, dealId: deal.id },
+      select: { id: true },
+    });
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: { code: "TASK_NOT_FOUND", message: "Task not found." },
+      });
+    }
+
+    await prisma.dealTask.delete({ where: { id: task.id } });
+    return res.json({ success: true, data: { deleted: true } });
   } catch (error) {
     return next(error);
   }

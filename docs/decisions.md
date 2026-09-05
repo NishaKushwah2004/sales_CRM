@@ -323,3 +323,33 @@ The records below preserve the phase decisions made during implementation. The s
 - **Chose:** Allow owners to dismiss; managers and collaborators can view alerts but cannot dismiss another owner's alert.
 - **Rejected:** Granting dismissal to every user who can view or manage the deal.
 - **Why:** The assignment assigns responsibility for the overdue deal to its owner, while existing deal access still governs visibility.
+
+## Phase 13 Decision 1 - Dedicated deal task model
+
+- **Chose:** Store follow-ups in a dedicated `DealTask` model related to `Deal` and `User`.
+- **Rejected:** JSON task arrays inside Deal or a global task table without a deal relationship.
+- **Why:** Tasks are first-class records with ownership, assignment, validation, due dates, and authorization. A relational model preserves referential integrity and makes deal-scoped authorization explicit.
+
+## Phase 13 Decision 2 - Assignment follows deal access
+
+- **Chose:** A task may be assigned only to the deal owner or an existing Sales Rep collaborator.
+- **Rejected:** Allowing assignment to any Sales Rep in the database.
+- **Why:** Assignment should not create a side channel that exposes a deal to a user who cannot otherwise access it. The rule reuses the CRM's existing owner/collaborator working-team model.
+
+## Phase 13 Decision 3 - Collaborator permissions
+
+- **Chose:** Managers and deal owners have full task management. Collaborators can view, edit task content, and complete/reopen tasks, but cannot create, delete, or reassign tasks.
+- **Rejected:** Giving collaborators deletion or assignment authority.
+- **Why:** Collaborators need operational follow-up access without gaining administrative control over the deal's task ownership.
+
+## Phase 13 Decision 4 - Derived overdue state
+
+- **Chose:** Store only `PENDING` and `COMPLETED`; derive `OVERDUE` in the UI from a pending task whose due date has passed.
+- **Rejected:** A stored `OVERDUE` status or background scheduler.
+- **Why:** Overdue-ness is a time-dependent view of pending state. Deriving it avoids stale status and keeps the stretch feature free of notification infrastructure.
+
+## Phase 13 Decision 5 - No task events in DealEvent
+
+- **Chose:** Keep task mutations outside the immutable DealEvent timeline for this stretch feature.
+- **Rejected:** Emitting a DealEvent for every task create/edit/status/delete operation.
+- **Why:** The existing immutable history contract covers deal creation, lifecycle, owner changes, and notes. Expanding that audit stream would change its scope without being required by the task feature.

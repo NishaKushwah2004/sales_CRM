@@ -48,3 +48,13 @@ No reporting totals or weighted values are denormalised. Dashboard values will b
 `prisma/seed.js` is idempotent for its demo users, companies, deals, collaborators, and representative events. It hashes the seed-time demo password with bcrypt before persistence. The seed ran successfully against the local database: 1 manager, 3 sales reps, 4 companies, 5 deals, 2 collaborator relationships, and 9 events. Finalized role demo credentials are now recorded in `SUBMISSION.md`.
 
 
+
+## Phase 13 - DealTask
+
+- **DealTask:** UUID primary key; required Deal foreign key; required Sales Rep assignee foreign key; title up to 255 characters; optional text description; optional timestamp due date; `PENDING` or `COMPLETED` status; nullable completion timestamp; and creation/update timestamps.
+
+A Deal has many tasks. A User can be assigned many tasks through the `assignedTo` relation. The task table uses foreign keys with `RESTRICT` deletion semantics so deleting a deal or assignee cannot silently erase task records.
+
+The database enforces task identity, required relationships, enum status values, non-null required fields, and the task indexes. Application code enforces that the deal is accessible to the current user, that the assignee is a Sales Rep who already has access to the deal, and that collaborator permissions cannot be escalated into deletion or reassignment. `completedAt` is maintained from the submitted status rather than trusted from the browser.
+
+Indexes cover `(dealId, status)` for deal-detail task lists, `(assignedToId, status)` for future assignee-oriented queries, and `(dueDate, status)` for future overdue-task queries. `OVERDUE` is intentionally not stored: it is derived from `PENDING` plus a past due date, avoiding stale background state.

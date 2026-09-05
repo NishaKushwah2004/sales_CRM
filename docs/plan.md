@@ -172,3 +172,15 @@ Validation: all backend source files passed `node --check`; the new backend test
 ## Remaining work
 
 Phase 13 documentation is substantially complete. Phase 14 deployment remains required, followed by a final Phase 15 evaluation/submission pass.
+
+## Phase 13 - Tasks and Follow-up Reminders
+
+**Planned work:** add a dedicated deal-task model with due dates and pending/completed state; expose deal-scoped CRUD endpoints; enforce the existing deal visibility boundary; allow managers and deal owners to create, assign, update, complete/reopen, and delete tasks; allow collaborators to view and update/complete/reopen tasks without reassignment or deletion; and integrate a compact Tasks & Follow-ups section into the existing deal detail page.
+
+**Actual implementation:** added `DealTask` and `DealTaskStatus` with foreign keys to Deal and User, indexes for deal/status, assignee/status, and due-date/status, and a forward-only Prisma migration. Task endpoints reuse authenticated deal access, validate UUIDs and task fields server-side, require assignees to be Sales Reps who already have access to the deal, and prevent collaborators from changing assignees or deleting tasks. Pending tasks whose due date has passed are displayed as `Overdue` without storing a separate overdue status. The detail page reuses the existing deal owner/collaborator data for assignee selection and exposes permission-aware create/edit/status/delete controls.
+
+**Authorization decision:** Managers and deal owners have full task management. Collaborators can view, edit task content, and complete/reopen tasks, but cannot create, delete, or reassign tasks. Every task mutation first resolves an accessible non-deleted deal and then scopes the task lookup to that deal, preventing task-ID guessing from bypassing deal authorization.
+
+**Testing:** backend source syntax checks, task authorization unit coverage, Prisma validation/generation, frontend lint, and frontend production build should be run against the available dependency/database environment. Database-backed endpoint integration tests remain environment-dependent and must not be represented as passing unless PostgreSQL is available.
+
+**Deviation/cut:** no global task list, notification service, recurring tasks, task comments, task history events, or separate project-management workflow was added. Existing DealEvent semantics remain unchanged.

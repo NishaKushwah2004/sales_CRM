@@ -30,6 +30,13 @@ const backwardActions = {
   PROPOSAL: "QUALIFIED",
   NEGOTIATION: "PROPOSAL",
 };
+const taskEmpty = {
+  title: "",
+  description: "",
+  dueDate: "",
+  assignedToId: "",
+};
+
 const empty = {
   title: "",
   value: "",
@@ -52,6 +59,11 @@ export default function DealDetailPage() {
   const [collaborators, setCollaborators] = useState([]);
   const [history, setHistory] = useState([]);
   const [candidateUsers, setCandidateUsers] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [taskForm, setTaskForm] = useState(taskEmpty);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingTaskForm, setEditingTaskForm] = useState(taskEmpty);
+  const [taskSaving, setTaskSaving] = useState(false);
   const [selectedCollaborator, setSelectedCollaborator] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [form, setForm] = useState(empty);
@@ -74,13 +86,14 @@ export default function DealDetailPage() {
               : Promise.resolve(null),
           ]);
         const current = dealResponse.data.data.deal;
-        const [collaboratorResponse, candidateResponse, historyResponse] =
+        const [collaboratorResponse, candidateResponse, historyResponse, taskResponse] =
           await Promise.all([
             api.get(`/deals/${id}/collaborators`),
             current.ownerId === user.id || user.role === "MANAGER"
               ? api.get(`/deals/${id}/collaborator-candidates`)
               : Promise.resolve({ data: { data: { candidates: [] } } }),
             api.get(`/deals/${id}/history`),
+            api.get(`/deals/${id}/tasks`),
           ]);
         setDeal(current);
         setForm({
@@ -94,11 +107,13 @@ export default function DealDetailPage() {
         setOwners(ownerResponse?.data.data.owners || []);
         setCollaborators(collaboratorResponse.data.data.collaborators);
         setHistory(historyResponse.data.data.events);
+        setTasks(taskResponse.data.data.tasks);
         setCandidateUsers(
           current.ownerId === user.id || user.role === "MANAGER"
             ? candidateResponse.data.data.candidates
             : [],
         );
+        setTaskForm({ ...taskEmpty, assignedToId: current.ownerId });
       } catch (requestError) {
         setError(errorMessage(requestError, "Unable to load deal."));
       } finally {
@@ -225,6 +240,116 @@ export default function DealDetailPage() {
     }
   }
 
+  function changeTaskForm(setter, field, value) {
+    setter((current) => ({ ...current, [field]: value }));
+  }
+
+  function taskAssignees() {
+    const users = [deal.owner, ...collaborators];
+    return users.filter(
+      (candidate, index, list) =>
+        candidate?.role === "SALES_REP" &&
+        list.findIndex((item) => item.id === candidate.id) === index,
+    );
+  }
+
+  async function addTask(event) {
+    event.preventDefault();
+    const title = taskForm.title.trim();
+    if (!title) {
+      setError("Task title is required.");
+      return;
+    }
+    setTaskSaving(true);
+    setError("");
+    try {
+      const response = await api.post(`/deals/${id}/tasks`, {
+        title,
+        description: taskForm.description,
+        dueDate: taskForm.dueDate || null,
+        assignedToId: taskForm.assignedToId,
+      });
+      setTasks((current) => [response.data.data.task, ...current]);
+      setTaskForm({ ...taskEmpty, assignedToId: deal.ownerId });
+    } catch (requestError) {
+      setError(errorMessage(requestError, "Unable to create task."));
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  function beginTaskEdit(task) {
+    setEditingTaskId(task.id);
+    setEditingTaskForm({
+      title: task.title,
+      description: task.description || "",
+      dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
+      assignedToId: task.assignedToId,
+    });
+  }
+
+  function cancelTaskEdit() {
+    setEditingTaskId(null);
+    setEditingTaskForm(taskEmpty);
+  }
+
+  async function updateTask(event, task) {
+    event.preventDefault();
+    const title = editingTaskForm.title.trim();
+    if (!title) {
+      setError("Task title is required.");
+      return;
+    }
+    setTaskSaving(true);
+    setError("");
+    try {
+      const payload = {
+        title,
+        description: editingTaskForm.description,
+        dueDate: editingTaskForm.dueDate || null,
+      };
+      if (canManageTasks) payload.assignedToId = editingTaskForm.assignedToId;
+      const response = await api.patch(`/deals/${id}/tasks/${task.id}`, payload);
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? response.data.data.task : item)),
+      );
+      cancelTaskEdit();
+    } catch (requestError) {
+      setError(errorMessage(requestError, "Unable to update task."));
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  async function setTaskStatus(task, status) {
+    setTaskSaving(true);
+    setError("");
+    try {
+      const response = await api.patch(`/deals/${id}/tasks/${task.id}`, { status });
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? response.data.data.task : item)),
+      );
+    } catch (requestError) {
+      setError(errorMessage(requestError, "Unable to update task status."));
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  async function removeTask(task) {
+    if (!window.confirm(`Delete task "${task.title}"?`)) return;
+    setTaskSaving(true);
+    setError("");
+    try {
+      await api.delete(`/deals/${id}/tasks/${task.id}`);
+      setTasks((current) => current.filter((item) => item.id !== task.id));
+    } catch (requestError) {
+      setError(errorMessage(requestError, "Unable to delete task."));
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
   async function addNote(event) {
     event.preventDefault();
     const trimmedNote = noteBody.trim();
@@ -274,6 +399,11 @@ export default function DealDetailPage() {
   const previousStage = backwardActions[deal.stage];
   const canManageCollaborators =
     user.role === "MANAGER" || deal.ownerId === user.id;
+  const isDealCollaborator = collaborators.some(
+    (collaborator) => collaborator.id === user.id,
+  );
+  const canManageTasks = user.role === "MANAGER" || deal.ownerId === user.id;
+  const canEditTasks = canManageTasks || isDealCollaborator;
   const availableCollaborators = candidateUsers.filter(
     (candidate) =>
       candidate.id !== deal.ownerId &&
@@ -430,6 +560,196 @@ export default function DealDetailPage() {
                 disabled={!selectedCollaborator || saving}
               >
                 {saving ? "Adding..." : "Add Collaborator"}
+              </button>
+            </form>
+          )}
+        </section>
+
+        <section
+          className="mt-8 rounded border border-slate-800 bg-slate-900 p-6"
+          aria-labelledby="tasks-heading"
+        >
+          <h2 id="tasks-heading" className="text-xl font-semibold">
+            Tasks & Follow-ups
+          </h2>
+          {tasks.length === 0 ? (
+            <p className="mt-4 text-slate-400">No tasks created for this deal.</p>
+          ) : (
+            <ul className="mt-5 space-y-4">
+              {tasks.map((task) => {
+                const overdue =
+                  task.status === "PENDING" &&
+                  task.dueDate &&
+                  new Date(task.dueDate) < new Date(new Date().toISOString().slice(0, 10));
+                const isEditing = editingTaskId === task.id;
+                return (
+                  <li className="rounded border border-slate-700 p-4" key={task.id}>
+                    {isEditing ? (
+                      <form className="space-y-3" onSubmit={(event) => updateTask(event, task)}>
+                        <input
+                          className="w-full rounded border border-slate-700 bg-slate-950 p-2"
+                          value={editingTaskForm.title}
+                          onChange={(event) => changeTaskForm(setEditingTaskForm, "title", event.target.value)}
+                          maxLength={255}
+                          required
+                        />
+                        <textarea
+                          className="min-h-20 w-full rounded border border-slate-700 bg-slate-950 p-2"
+                          value={editingTaskForm.description}
+                          onChange={(event) => changeTaskForm(setEditingTaskForm, "description", event.target.value)}
+                          maxLength={5000}
+                          placeholder="Description"
+                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="text-sm text-slate-300">
+                            Due date
+                            <input
+                              type="date"
+                              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2"
+                              value={editingTaskForm.dueDate}
+                              onChange={(event) => changeTaskForm(setEditingTaskForm, "dueDate", event.target.value)}
+                            />
+                          </label>
+                          {canManageTasks && (
+                            <label className="text-sm text-slate-300">
+                              Assigned to
+                              <select
+                                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2"
+                                value={editingTaskForm.assignedToId}
+                                onChange={(event) => changeTaskForm(setEditingTaskForm, "assignedToId", event.target.value)}
+                                required
+                              >
+                                {taskAssignees().map((candidate) => (
+                                  <option key={candidate.id} value={candidate.id}>
+                                    {candidate.email}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button className="rounded bg-sky-500 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50" disabled={taskSaving}>
+                            {taskSaving ? "Saving..." : "Save task"}
+                          </button>
+                          <button type="button" className="rounded border border-slate-600 px-3 py-2 text-sm" onClick={cancelTaskEdit} disabled={taskSaving}>
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-medium">{task.title}</p>
+                            {task.description && (
+                              <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{task.description}</p>
+                            )}
+                            <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-400">
+                              <span>Assigned: {task.assignedTo?.email || "Unknown"}</span>
+                              <span>
+                                Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            className={`rounded px-2 py-1 text-xs font-semibold ${
+                              task.status === "COMPLETED"
+                                ? "bg-emerald-950 text-emerald-200"
+                                : overdue
+                                  ? "bg-red-950 text-red-200"
+                                  : "bg-amber-950 text-amber-200"
+                            }`}
+                          >
+                            {task.status === "COMPLETED" ? "Completed" : overdue ? "Overdue" : "Pending"}
+                          </span>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {task.status === "PENDING" ? (
+                            <button
+                              type="button"
+                              className="rounded bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                              onClick={() => setTaskStatus(task, "COMPLETED")}
+                              disabled={taskSaving}
+                            >
+                              Complete
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="rounded border border-slate-600 px-3 py-2 text-sm disabled:opacity-50"
+                              onClick={() => setTaskStatus(task, "PENDING")}
+                              disabled={taskSaving}
+                            >
+                              Reopen
+                            </button>
+                          )}
+                          {canEditTasks && (
+                            <button type="button" className="rounded border border-slate-600 px-3 py-2 text-sm" onClick={() => beginTaskEdit(task)} disabled={taskSaving}>
+                              Edit
+                            </button>
+                          )}
+                          {canManageTasks && (
+                            <button type="button" className="rounded border border-red-700 px-3 py-2 text-sm text-red-200" onClick={() => removeTask(task)} disabled={taskSaving}>
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {canManageTasks && (
+            <form className="mt-6 space-y-3 border-t border-slate-800 pt-5" onSubmit={addTask}>
+              <h3 className="font-medium">Add Task</h3>
+              <input
+                className="w-full rounded border border-slate-700 bg-slate-950 p-2"
+                value={taskForm.title}
+                onChange={(event) => changeTaskForm(setTaskForm, "title", event.target.value)}
+                maxLength={255}
+                placeholder="Task title"
+                required
+              />
+              <textarea
+                className="min-h-20 w-full rounded border border-slate-700 bg-slate-950 p-2"
+                value={taskForm.description}
+                onChange={(event) => changeTaskForm(setTaskForm, "description", event.target.value)}
+                maxLength={5000}
+                placeholder="Description (optional)"
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm text-slate-300">
+                  Due date
+                  <input
+                    type="date"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2"
+                    value={taskForm.dueDate}
+                    onChange={(event) => changeTaskForm(setTaskForm, "dueDate", event.target.value)}
+                  />
+                </label>
+                <label className="text-sm text-slate-300">
+                  Assigned to
+                  <select
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2"
+                    value={taskForm.assignedToId}
+                    onChange={(event) => changeTaskForm(setTaskForm, "assignedToId", event.target.value)}
+                    required
+                  >
+                    <option value="">Select Sales Rep</option>
+                    {taskAssignees().map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.email}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <button className="rounded bg-sky-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50" disabled={taskSaving || !taskForm.assignedToId}>
+                {taskSaving ? "Adding..." : "Add Task"}
               </button>
             </form>
           )}

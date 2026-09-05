@@ -85,3 +85,13 @@ Deal creation, normal owner reassignment, lifecycle transitions, reopen, and bul
 
 Dismissals reuse `DealAlertDismissal` and its deal/user/date uniqueness constraint. Changing a deal's expected close date naturally creates a new effective alert state because the old snapshot no longer matches. The dashboard fetches alerts alongside its existing data and removes an alert locally after a successful dismissal; no polling, notification worker, or new table was added.
 The same filtered response includes a server-derived actionable `count`, which is shown as the Past Due navigation badge and decremented after a successful dismissal.
+
+## Phase 13 - Tasks and follow-up reminders
+
+Tasks are implemented as a deal-scoped extension of the existing Deals API rather than a separate global task module. React's `DealDetailPage` calls `/api/deals/:dealId/tasks` through the existing Axios client. Express authenticates the request with the existing HTTP-only JWT middleware, resolves the deal through the shared manager/owner/collaborator access predicate, and then queries or mutates `DealTask` through Prisma/PostgreSQL.
+
+Task assignment is deliberately constrained to Sales Reps who already have access to the deal: the current owner or an existing collaborator. Managers and deal owners have full task-management authority. Collaborators can view and update task content and status, but cannot create, delete, or reassign tasks. The server, not React, enforces these rules.
+
+A task's stored status is only `PENDING` or `COMPLETED`. `OVERDUE` is a derived UI state when a pending task has a due date before the current day, so no background job or mutable overdue flag is required. Task changes are not added to `DealEvent`; the assignment's immutable deal timeline remains focused on the existing deal creation, lifecycle, ownership, and note events.
+
+The feature intentionally does not introduce a global task dashboard, notifications, recurring tasks, subtasks, comments, or project-management concepts. Keeping tasks under the existing deal authorization boundary minimizes IDOR risk and avoids a second permission model.
