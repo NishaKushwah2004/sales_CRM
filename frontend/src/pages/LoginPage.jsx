@@ -1,6 +1,7 @@
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../auth/useAuth";
+
 export default function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
@@ -27,63 +28,72 @@ export default function LoginPage() {
     }
   }
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-950 px-6 py-12 text-slate-100">
-      <form
-        className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-8"
-        onSubmit={handleSubmit}
-      >
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-400">
-          Sales CRM
-        </p>
-        <h1 className="mt-3 text-3xl font-bold">Sign in</h1>
-        {location.state?.registered && (
-          <p className="mt-5 rounded-md bg-emerald-950 px-3 py-2 text-sm text-emerald-200">
-            Account created. You can now sign in.
+    <main className="grid min-h-screen bg-[#F8FAFC] lg:grid-cols-2">
+      <section className="hidden flex-col justify-between bg-indigo-700 px-12 py-12 text-white lg:flex">
+        <p className="text-sm font-semibold tracking-wide">Sales CRM</p>
+        <div>
+          <h1 className="max-w-md text-4xl font-semibold leading-tight">
+            A clean workspace for pipeline, companies, and follow-ups.
+          </h1>
+          <p className="mt-4 max-w-md text-indigo-100">
+            Sign in to manage deals, collaborators, and past-due alerts with the
+            same access rules you already use.
           </p>
-        )}
-        {error && (
-          <p className="mt-5 rounded-md bg-red-950 px-3 py-2 text-sm text-red-200">
-            {error}
+        </div>
+        <p className="text-sm text-indigo-200">Professional sales operations</p>
+      </section>
+      <section className="grid place-items-center px-6 py-12">
+        <form className="card w-full max-w-md p-8" onSubmit={handleSubmit}>
+          <p className="text-sm font-semibold text-indigo-600">Sales CRM</p>
+          <h1 className="mt-2 text-2xl font-semibold text-slate-900">Sign in</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Use your account email and password.
           </p>
-        )}
-        <label className="mt-6 block text-sm font-medium" htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
-        <label className="mt-4 block text-sm font-medium" htmlFor="password">
-          Password
-        </label>
-        <input
-          id="password"
-          className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
-        <button
-          className="mt-6 w-full rounded-md bg-sky-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-60"
-          type="submit"
-          disabled={submitting}
-        >
-          {submitting ? "Signing in..." : "Sign in"}
-        </button>
-        <p className="mt-5 text-center text-sm text-slate-400">
-          Don't have an account?{" "}
-          <Link className="text-sky-300 hover:text-sky-200" to="/register">
-            Register
-          </Link>
-        </p>
-      </form>
+          {location.state?.registered && (
+            <p className="alert-success mt-5">
+              Account created. You can now sign in.
+            </p>
+          )}
+          {error && <p className="alert-error mt-5">{error}</p>}
+          <label className="mt-6 block text-sm font-medium text-slate-700" htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            className="input"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+          <label className="mt-4 block text-sm font-medium text-slate-700" htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            className="input"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+          <button
+            className="btn btn-primary mt-6 w-full py-2.5"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? "Signing in..." : "Sign in"}
+          </button>
+          <p className="mt-5 text-center text-sm text-slate-500">
+            Don't have an account?{" "}
+            <Link className="font-semibold text-indigo-600 hover:text-indigo-500" to="/register">
+              Register
+            </Link>
+          </p>
+        </form>
+      </section>
     </main>
   );
 }
