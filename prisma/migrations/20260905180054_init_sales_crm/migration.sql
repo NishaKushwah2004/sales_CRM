@@ -1,11 +1,11 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('MANAGER', 'SALES_REP');
 
 -- CreateEnum
 CREATE TYPE "DealStage" AS ENUM ('NEW', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST');
+
+-- CreateEnum
+CREATE TYPE "DealTaskStatus" AS ENUM ('PENDING', 'COMPLETED');
 
 -- CreateEnum
 CREATE TYPE "DealEventType" AS ENUM ('DEAL_CREATED', 'STAGE_CHANGED', 'OWNER_REASSIGNED', 'NOTE_ADDED');
@@ -81,6 +81,22 @@ CREATE TABLE "DealEvent" (
 );
 
 -- CreateTable
+CREATE TABLE "DealTask" (
+    "id" UUID NOT NULL,
+    "dealId" UUID NOT NULL,
+    "assignedToId" UUID NOT NULL,
+    "title" VARCHAR(255) NOT NULL,
+    "description" TEXT,
+    "dueDate" TIMESTAMPTZ(6),
+    "status" "DealTaskStatus" NOT NULL DEFAULT 'PENDING',
+    "completedAt" TIMESTAMPTZ(6),
+    "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "DealTask_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "DealAlertDismissal" (
     "id" UUID NOT NULL,
     "dealId" UUID NOT NULL,
@@ -137,6 +153,15 @@ CREATE INDEX "DealEvent_actorId_occurredAt_idx" ON "DealEvent"("actorId", "occur
 CREATE INDEX "DealEvent_type_occurredAt_idx" ON "DealEvent"("type", "occurredAt");
 
 -- CreateIndex
+CREATE INDEX "DealTask_dealId_status_idx" ON "DealTask"("dealId", "status");
+
+-- CreateIndex
+CREATE INDEX "DealTask_assignedToId_status_idx" ON "DealTask"("assignedToId", "status");
+
+-- CreateIndex
+CREATE INDEX "DealTask_dueDate_status_idx" ON "DealTask"("dueDate", "status");
+
+-- CreateIndex
 CREATE INDEX "DealAlertDismissal_dismissedById_expectedCloseDate_idx" ON "DealAlertDismissal"("dismissedById", "expectedCloseDate");
 
 -- CreateIndex
@@ -168,6 +193,12 @@ ALTER TABLE "DealEvent" ADD CONSTRAINT "DealEvent_previousOwnerId_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "DealEvent" ADD CONSTRAINT "DealEvent_newOwnerId_fkey" FOREIGN KEY ("newOwnerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DealTask" ADD CONSTRAINT "DealTask_dealId_fkey" FOREIGN KEY ("dealId") REFERENCES "Deal"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DealTask" ADD CONSTRAINT "DealTask_assignedToId_fkey" FOREIGN KEY ("assignedToId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "DealAlertDismissal" ADD CONSTRAINT "DealAlertDismissal_dealId_fkey" FOREIGN KEY ("dealId") REFERENCES "Deal"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
